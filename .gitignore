@@ -1,0 +1,12 @@
+CMakeFiles
+icons
+resources
+CGAL*
+CMakeLists.txt.user
+CMakeCache.txt
+cmake_install.cmake
+qrc*
+ui_ImageInterface.h
+*.a
+Makefile
+bin

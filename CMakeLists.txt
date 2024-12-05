@@ -1,13 +1,18 @@
-# Created by the script cgal_create_cmake_script
-# This is the CMake script for compiling a CGAL application.
-
 cmake_minimum_required(VERSION 3.1...3.23)
-project( Path_Gen )
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
+set (CMAKE_CXX_STANDARD 23)
+set (CMAKE_EXPORT_COMPILE_COMMANDS 1)
+project( DisplayImage )
 find_package(CGAL REQUIRED COMPONENTS Qt5 Core)
+find_package( OpenCV REQUIRED )
+include_directories( ${OpenCV_INCLUDE_DIRS} )
 
-# create a target per cppfile
-create_single_source_cgal_program( "path_gen.cpp" )
-target_link_libraries(path_gen PUBLIC CGAL::CGAL_Basic_viewer)
+add_executable(gen_csv gen_csv.cpp)
+target_link_libraries(gen_csv CGAL::CGAL)
+target_link_libraries(gen_csv CGAL::CGAL_Basic_viewer)
+target_link_libraries(gen_csv tesseract)
+target_link_libraries(gen_csv ${OpenCV_LIBS} )
+
+add_executable(gen_image gen_clean_image.cpp)
+target_link_libraries(gen_image tesseract)
+target_link_libraries(gen_image ${OpenCV_LIBS} )

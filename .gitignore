@@ -10,3 +10,8 @@ ui_ImageInterface.h
 *.a
 Makefile
 bin
+opencv*
+compile_commands.json
+build
+.cache
+EAST.pb

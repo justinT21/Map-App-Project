@@ -1,4 +1,3 @@
-
 Install CGAL `sudo apt-get install libcgal-dev` and `sudo apt-get install libcgal-qt5-dev`
 
 To get cgal examples run `wget https://github.com/CGAL/cgal/releases/download/v5.5.4/CGAL-5.5.4-examples.tar.xz` and untar it
@@ -11,3 +10,13 @@ Tesseract is needed, however it is not used: run `sudo apt install tesseract-ocr
 
 To Build run `cmake -DCMAKE_BUILD_TYPE=Release .` and `make`
 All executables get put into ./bin
+
+## Running the Web Application
+
+To avoid CORS issues when loading the map application, run a local server:
+
+```
+cd www && python -m http.server 8000
+```
+
+Then open your browser and navigate to `http://localhost:8000`

@@ -8,12 +8,95 @@
       body {
         margin: 0;
         padding: 0;
+        font-family: Arial, sans-serif;
+      }
+      
+      #controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        width: 300px;
+      }
+      
+      #search-container {
+        margin-bottom: 10px;
+      }
+      
+      #search-input {
+        width: 75%;
+        padding: 8px;
+        border-radius: 3px;
+        border: 1px solid #ccc;
+      }
+      
+      #search-button {
+        width: 20%;
+        padding: 8px;
+        border-radius: 3px;
+        border: 1px solid #0066cc;
+        background: #0066cc;
+        color: white;
+        cursor: pointer;
+      }
+      
+      #location-info {
+        font-size: 14px;
+        margin-top: 10px;
+      }
+      
+      #location-select-mode {
+        display: none;
+        background: rgba(255, 200, 0, 0.8);
+        color: black;
+        padding: 5px;
+        border-radius: 3px;
+        font-weight: bold;
+        margin-top: 5px;
+        text-align: center;
+      }
+      
+      #destinations {
+        margin-top: 10px;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+      
+      .destination-item {
+        padding: 5px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+      }
+      
+      .destination-item:hover {
+        background-color: #f0f0f0;
       }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/graphlib/2.1.8/graphlib.min.js"></script>
   </head>
 
   <body>
+    <div id="controls">
+      <div id="search-container">
+        <input type="text" id="search-input" placeholder="Search for a destination">
+        <button id="search-button">Go</button>
+      </div>
+      <div id="location-info">
+        Current Location: Getting location...
+      </div>
+      <div id="location-select-mode">
+        LOCATION SELECT MODE - Click anywhere on the map
+      </div>
+      <div id="destinations">
+        <h4>Destinations</h4>
+        <!-- Destination list will be populated here -->
+      </div>
+    </div>
+    
     <img
       id="image"
       src="SchoolMap.png"
@@ -25,23 +108,264 @@
     <script>
       var canvas = document.getElementById("canvas");
       var img = document.getElementById("image");
-
-      img.onload = function () {
-        canvas.width = img.width;
-        canvas.height = img.height;
-
-        console.log("Width: " + img.width);
-        console.log("Height: " + img.height);
-
+      var locationInfo = document.getElementById("location-info");
+      var searchInput = document.getElementById("search-input");
+      var searchButton = document.getElementById("search-button");
+      var destinationsContainer = document.getElementById("destinations");
+      var locationSelectMode = document.getElementById("location-select-mode");
+      
+      // Map data
+      var map;
+      var geoJsonData;
+      var userLocation = null;
+      var isLocationSelectMode = false;
+      var destinations = [
+        { name: "Building A", coordinates: "-122.067486,37.360507" },
+        { name: "Building B", coordinates: "-122.067481,37.360504" },
+        { name: "Library", coordinates: "-122.067490,37.360520" },
+        { name: "Cafeteria", coordinates: "-122.067470,37.360490" },
+        { name: "Gymnasium", coordinates: "-122.067455,37.360510" }
+      ];
+      
+      // Initialize destinations list
+      function populateDestinations() {
+        destinationsContainer.innerHTML = "<h4>Destinations</h4>";
+        destinations.forEach(dest => {
+          const item = document.createElement("div");
+          item.className = "destination-item";
+          item.textContent = dest.name;
+          item.setAttribute("data-coordinates", dest.coordinates);
+          item.onclick = function() {
+            navigateTo(this.getAttribute("data-coordinates"), dest.name);
+          };
+          destinationsContainer.appendChild(item);
+        });
+      }
+      
+      // Search functionality
+      searchButton.addEventListener("click", function() {
+        const searchTerm = searchInput.value.trim().toLowerCase();
+        if (searchTerm === "") return;
+        
+        const filteredDestinations = destinations.filter(dest => 
+          dest.name.toLowerCase().includes(searchTerm)
+        );
+        
+        if (filteredDestinations.length > 0) {
+          navigateTo(filteredDestinations[0].coordinates, filteredDestinations[0].name);
+        } else {
+          alert("Destination not found");
+        }
+      });
+      
+      // Location override with keybind (press 'L')
+      document.addEventListener('keydown', function(event) {
+        if (event.key.toLowerCase() === 'l') {
+          isLocationSelectMode = !isLocationSelectMode;
+          locationSelectMode.style.display = isLocationSelectMode ? 'block' : 'none';
+          
+          if (isLocationSelectMode) {
+            canvas.style.cursor = 'crosshair';
+          } else {
+            canvas.style.cursor = 'default';
+          }
+        }
+      });
+      
+      // Get user's current location
+      function getUserLocation() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function(position) {
+              // Convert GPS coordinates to our map coordinates
+              const latitude = position.coords.latitude;
+              const longitude = position.coords.longitude;
+              
+              // For debugging, show the raw GPS coordinates
+              console.log("Raw GPS:", latitude, longitude);
+              
+              // For this demo, we'll attempt to convert GPS to our map coordinates
+              // But since these are likely not in the same reference frame, we still use a fallback
+              try {
+                userLocation = convertGpsToMapCoordinates(latitude, longitude);
+                console.log("Converted coordinates:", userLocation);
+                
+                // If the converted location is far outside our map bounds, use the fallback
+                const mapCoords = userLocation.split(",").map(parseFloat);
+                const imgCoords = mapToImageCoordinates(mapCoords[0], mapCoords[1]);
+                
+                // Just for debugging - check if these coordinates are within reasonable bounds
+                console.log("Image coordinates:", imgCoords.x, imgCoords.y);
+                
+                // If conversion clearly puts us outside the image, use fallback
+                if (isNaN(imgCoords.x) || isNaN(imgCoords.y) || 
+                    imgCoords.x < 0 || imgCoords.y < 0 || 
+                    imgCoords.x > canvas.width*2 || imgCoords.y > canvas.height*2) {
+                  console.log("Converted coordinates outside map bounds, using fallback");
+                  userLocation = destinations[0].coordinates;
+                }
+              } catch (e) {
+                console.error("Error converting GPS coordinates:", e);
+                userLocation = destinations[0].coordinates;
+              }
+              
+              // Note we display longitude first (X), then latitude (Y)
+              locationInfo.textContent = "Current Location: Long: " + longitude.toFixed(6) + ", Lat: " + latitude.toFixed(6);
+              drawUserLocation();
+            },
+            function(error) {
+              locationInfo.textContent = "Error getting location: " + error.message;
+              console.error("Error getting user location:", error);
+              
+              // Fallback to a default location
+              userLocation = destinations[0].coordinates;
+              drawUserLocation();
+            }
+          );
+        } else {
+          locationInfo.textContent = "Geolocation is not supported by this browser.";
+          
+          // Fallback to a default location
+          userLocation = destinations[0].coordinates;
+          drawUserLocation();
+        }
+      }
+      
+      // Draw user location on the map
+      function drawUserLocation(ctx) {
+        if (!userLocation || !map) return;
+        
+        let [lng, lat] = userLocation.split(",").map(parseFloat);
+        let x = lng * x_scale + x_offset;
+        let y = lat * y_scale + y_offset;
+        
+        // Debug marker positions
+        console.log("Drawing user location at map coordinates:", lng, lat);
+        console.log("Converted to image coords:", x, y);
+        
+        // Draw marker with color that will be visible on any background
+        const markerColor = "rgba(255, 0, 0, 0.8)";
+        const textColor = "white";
+        const outlineColor = "black";
+        
+        // Draw outer glow
+        ctx.beginPath();
+        ctx.arc(x, y, 15, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+        ctx.fill();
+        ctx.closePath();
+        
+        // Draw location point
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, 2 * Math.PI);
+        ctx.fillStyle = markerColor;
+        ctx.fill();
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.closePath();
+        
+        // Draw "You are here" label
+        ctx.fillStyle = textColor;
+        ctx.strokeStyle = outlineColor;
+        ctx.lineWidth = 3;
+        ctx.font = "14px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.strokeText("YOU ARE HERE", x, y - 20);
+        ctx.fillText("YOU ARE HERE", x, y - 20);
+        
+        // Update display with coordinates
+        // Order should be longitude, latitude (X, Y)
+        let coordDisplay = `Current Location: Long: ${lng.toFixed(6)}, Lat: ${lat.toFixed(6)}`;
+        locationInfo.textContent = coordDisplay;
+      }
+      
+      // Navigate to a destination
+      function navigateTo(destinationCoords, destinationName) {
+        if (!userLocation || !map) {
+          alert("Current location not available yet");
+          return;
+        }
+        
+        // Redraw the map to clear previous paths
+        drawBaseMap();
+        
+        // Draw the path
+        drawShortestPath(map, userLocation, destinationCoords);
+        
+        // Update location info
+        locationInfo.textContent = `Route: Current Location → ${destinationName}`;
+      }
+      
+      // Draw the base map
+      function drawBaseMap() {
         var ctx = canvas.getContext("2d");
 
-        ctx.scale(0.5, 0.5);
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Save the default state
+        ctx.save();
+        
+        // Set a fixed scale for better visibility
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
+        
+        // Center the image
+        const translateX = (canvas.width - img.width * scale) / 2;
+        const translateY = (canvas.height - img.height * scale) / 2;
+        
+        // Apply transformations in the correct order
+        ctx.translate(translateX, translateY);
+        ctx.scale(scale, scale);
+        
+        // Draw the base image
         ctx.drawImage(img, 0, 0);
 
+        // Apply additional transformations for coordinate system
         ctx.translate(img.width * 0.027, img.height * 1.225);
-
         ctx.rotate(-Math.PI / 2);
         ctx.scale(1, -1);
+        
+        // Draw paths
+        if (geoJsonData) {
+          drawGeoJson(ctx, geoJsonData);
+        }
+        
+        // Draw user location - let's make sure this is visible by logging state
+        if (userLocation && map) {
+          console.log("About to draw user location with context state:");
+          console.log("- Canvas size:", canvas.width, canvas.height);
+          console.log("- Scale factor:", scale);
+          console.log("- Translation:", translateX, translateY);
+          
+          // Draw a visible marker at the user's location
+          drawUserLocation(ctx);
+        }
+        
+        // Restore the context to its default state
+        ctx.restore();
+        
+        // Request frame update for smooth animations
+        requestAnimationFrame(function() {
+          // Only continue animation if in location mode or navigating
+          if (isLocationSelectMode) {
+            drawBaseMap();
+          }
+        });
+      }
+
+      img.onload = function () {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        console.log("Image dimensions - Width: " + img.width + ", Height: " + img.height);
+        console.log("Canvas dimensions - Width: " + canvas.width + ", Height: " + canvas.height);
+
+        // Initialize the application
+        getUserLocation();
+        populateDestinations();
+        drawBaseMap();
       };
 
       var x_scale = 293672.2068325253;
@@ -55,8 +379,8 @@
       console.log(x_offset);
       console.log(y_offset);
 
-      function drawGeoJson(geoJsonData) {
-        var ctx = canvas.getContext("2d");
+      function drawGeoJson(ctx, geoJsonData) {
+        if (!geoJsonData) return;
 
         geoJsonData.features.forEach((feature) => {
           if (feature.geometry.type === "LineString") {
@@ -124,6 +448,20 @@
 
       function drawShortestPath(map, startNode, endNode) {
         var ctx = canvas.getContext("2d");
+        
+        // Save context to restore later
+        ctx.save();
+        
+        // Apply the same transformations as in drawBaseMap
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
+        const translateX = (canvas.width - img.width * scale) / 2;
+        const translateY = (canvas.height - img.height * scale) / 2;
+        
+        ctx.translate(translateX, translateY);
+        ctx.scale(scale, scale);
+        ctx.translate(img.width * 0.027, img.height * 1.225);
+        ctx.rotate(-Math.PI / 2);
+        ctx.scale(1, -1);
 
         let dijkstraResult = graphlib.alg.dijkstra(map, startNode, (e) =>
           map.nodeEdges(e),
@@ -167,24 +505,164 @@
         // Stroke the path
         ctx.stroke();
         ctx.closePath();
+        
+        // Restore the context
+        ctx.restore();
       }
 
-      fetch("graph.json")
-        .then((response) => response.json())
-        .then((geoJsonData) => {
-          let map = updateGraphFromGeoJson(geoJsonData, graphlib);
+      fetch("graph.json", {
+        method: 'GET',
+        mode: 'cors', // Enable CORS
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.statusText);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          geoJsonData = data;
+          map = updateGraphFromGeoJson(geoJsonData, graphlib);
           console.log(map);
 
-          drawGeoJson(geoJsonData);
-
-          let startNode = "-122.067486,37.360507";
-          let endNode = "-122.067481,37.360504";
-
-          drawShortestPath(map, startNode, endNode);
+          drawGeoJson(canvas.getContext("2d"), geoJsonData);
+        })
+        .catch(error => {
+          console.error('Error fetching graph data:', error);
         });
 
       // Add the canvas to the DOM
       document.body.appendChild(canvas);
+
+      // Convert GPS coordinates to map coordinates
+      function convertGpsToMapCoordinates(latitude, longitude) {
+        // This is a simplified conversion - in a real app, you would use proper geographic projections
+        // These formulas use the existing scale and offset values to approximate the conversion
+        const x = longitude;
+        const y = latitude;
+        return `${x},${y}`;
+      }
+      
+      // Convert map coordinates to image coordinates
+      function mapToImageCoordinates(mapX, mapY) {
+        return {
+          x: mapX * x_scale + x_offset,
+          y: mapY * y_scale + y_offset
+        };
+      }
+
+      // When the window is resized, redraw the map
+      window.addEventListener('resize', function() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        drawBaseMap();
+      });
+
+      // Convert from GPS coordinates to image coordinates
+      // This uses the direct transformation from interpolation.py
+      function gpsToImageCoordinates(longitude, latitude) {
+        // Following the transformation in the Point.scale method in interpolation.py
+        const x = longitude * x_scale + x_offset;
+        const y = latitude * y_scale + y_offset;
+        return { x, y };
+      }
+      
+      // Convert from image coordinates back to GPS coordinates
+      // This is the inverse of the transformation in interpolation.py
+      function imageToGpsCoordinates(x, y) {
+        // Inverse of the scale transformation
+        const longitude = (x - x_offset) / x_scale;
+        const latitude = (y - y_offset) / y_scale;
+        return { longitude, latitude };
+      }
+      
+      // Convert from screen coordinates to image coordinates
+      function screenToImageCoordinates(screenX, screenY) {
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
+        const translateX = (canvas.width - img.width * scale) / 2;
+        const translateY = (canvas.height - img.height * scale) / 2;
+        
+        // First, undo the canvas translation and scaling
+        const canvasX = (screenX - translateX) / scale;
+        const canvasY = (screenY - translateY) / scale;
+        
+        // Next, undo the coordinate system transformations in reverse order:
+        // 1. First, undo scale(1, -1)
+        const unflippedY = -canvasY;
+        
+        // 2. Undo rotate(-Math.PI / 2) - 90 degrees clockwise rotation
+        // In a 90-degree clockwise rotation:
+        // x' = y
+        // y' = -x
+        // So to invert:
+        // x = -y'
+        // y = x'
+        const unrotatedX = -unflippedY;
+        const unrotatedY = canvasX;
+        
+        // 3. Undo translate(img.width * 0.027, img.height * 1.225)
+        const finalX = unrotatedX - img.width * 0.027;
+        const finalY = unrotatedY - img.height * 1.225;
+        
+        return { x: finalX, y: finalY };
+      }
+      
+      // Handle map clicks for location override
+      canvas.addEventListener('click', function(event) {
+        if (!isLocationSelectMode) return;
+        
+        // Get click position relative to canvas
+        const rect = canvas.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const clickY = event.clientY - rect.top;
+        
+        console.log("Click at screen coords:", clickX, clickY);
+        
+        // Convert screen coordinates to image coordinates
+        const imageCoords = screenToImageCoordinates(clickX, clickY);
+        console.log("Converted to image coordinates:", imageCoords.x, imageCoords.y);
+        
+        // Convert image coordinates to GPS coordinates
+        const gpsCoords = imageToGpsCoordinates(imageCoords.x, imageCoords.y);
+        console.log("Converted to GPS coordinates:", gpsCoords.longitude, gpsCoords.latitude);
+        
+        // Set the new user location
+        userLocation = `${gpsCoords.longitude},${gpsCoords.latitude}`;
+        locationInfo.textContent = `Current Location: Long: ${gpsCoords.longitude.toFixed(6)}, Lat: ${gpsCoords.latitude.toFixed(6)}`;
+        
+        // Check if we're near a known destination for better labeling
+        let closestDest = null;
+        let minDist = 0.0005; // Threshold distance in GPS coordinates
+        
+        for (const dest of destinations) {
+          const [destLng, destLat] = dest.coordinates.split(",").map(parseFloat);
+          const dx = gpsCoords.longitude - destLng;
+          const dy = gpsCoords.latitude - destLat;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          
+          if (dist < minDist) {
+            minDist = dist;
+            closestDest = dest;
+          }
+        }
+        
+        if (closestDest) {
+          console.log("Near known destination:", closestDest.name, "distance:", minDist.toFixed(6));
+          locationInfo.textContent = `Current Location: ${closestDest.name}`;
+          // We'll keep the exact coordinates for better precision
+        }
+        
+        // Exit location select mode
+        isLocationSelectMode = false;
+        locationSelectMode.style.display = 'none';
+        canvas.style.cursor = 'default';
+        
+        // Redraw the map
+        drawBaseMap();
+      });
     </script>
   </body>
 </html>

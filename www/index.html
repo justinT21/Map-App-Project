@@ -586,6 +586,7 @@
         const translateY = (canvas.height - img.height * scale) / 2;
         
         // First, undo the canvas translation and scaling
+        screenY = -(screenY-canvas.height/2) + canvas.height/2;
         const canvasX = (screenX - translateX) / scale;
         const canvasY = (screenY - translateY) / scale;
         
@@ -610,8 +611,8 @@
         const unrotatedY = -canvasX;
         
         // Undo translation
-        const finalX = unrotatedX - img.width * 0.027;
-        const finalY = unrotatedY + img.height * 0.0375;
+        const finalX = unrotatedX + img.width * 0.145;
+        const finalY = unrotatedY + img.height * 0.038;
         
         console.log("Final image coords:", finalX, finalY);
         

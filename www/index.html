@@ -589,23 +589,31 @@
         const canvasX = (screenX - translateX) / scale;
         const canvasY = (screenY - translateY) / scale;
         
+        console.log("Canvas coords after undoing translation/scale:", canvasX, canvasY);
+        
         // Next, undo the coordinate system transformations in reverse order:
-        // 1. First, undo scale(1, -1)
-        const unflippedY = -canvasY;
+        // Original transformations were:
+        // 1. ctx.translate(img.width * 0.027, img.height * 1.225);
+        // 2. ctx.rotate(-Math.PI / 2);
+        // 3. ctx.scale(1, -1);
         
-        // 2. Undo rotate(-Math.PI / 2) - 90 degrees clockwise rotation
-        // In a 90-degree clockwise rotation:
-        // x' = y
-        // y' = -x
-        // So to invert:
-        // x = -y'
-        // y = x'
-        const unrotatedX = -unflippedY;
-        const unrotatedY = canvasX;
+        // Try a different approach to fix the mirroring issue:
+        // The mirroring suggests we need to flip our coordinate system 
         
-        // 3. Undo translate(img.width * 0.027, img.height * 1.225)
+        // For rotation: instead of -Math.PI/2 (clockwise), try Math.PI/2 (counter-clockwise)
+        // For a counter-clockwise 90-degree rotation:
+        // x' = -y
+        // y' = x
+        
+        // Try this corrected transformation:
+        const unrotatedX = canvasY;
+        const unrotatedY = -canvasX;
+        
+        // Undo translation
         const finalX = unrotatedX - img.width * 0.027;
-        const finalY = unrotatedY - img.height * 1.225;
+        const finalY = unrotatedY + img.height * 0.0375;
+        
+        console.log("Final image coords:", finalX, finalY);
         
         return { x: finalX, y: finalY };
       }

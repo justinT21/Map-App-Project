@@ -1,78 +1,190 @@
 <!doctype html>
-
 <html>
   <head>
     <title>Map</title>
-
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""
-    />
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
-    ></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-      /* Set the map container size */
-      #map {
-        display: flex;
-        height: 700px;
-        width: 100%;
-        align-items: center;
-        justify-content: center;
+      body {
+        margin: 0;
+        padding: 0;
       }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/graphlib/2.1.8/graphlib.min.js"></script>
   </head>
 
   <body>
-    <div id="map"></div>
+    <img
+      id="image"
+      src="SchoolMap.png"
+      alt="Sample Image"
+      style="display: none"
+    />
+    <canvas id="canvas"></canvas>
 
     <script>
-      // Initialize the map
-      const map = L.map("map", {
-        zoomControl: false, // Disable the zoom control
-        maxZoom: 22,
-        minZoom: 17.3,
-        zoomSnap: 0.05,
-        zoomDelta: 0.001,
-      }).setView([37.359080394652686, -122.06679719311636], 17.3);
+      var canvas = document.getElementById("canvas");
+      var img = document.getElementById("image");
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(map);
+      img.onload = function () {
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        console.log("Width: " + img.width);
+        console.log("Height: " + img.height);
+
+        var ctx = canvas.getContext("2d");
+
+        ctx.scale(0.5, 0.5);
+        ctx.drawImage(img, 0, 0);
+
+        ctx.translate(img.width * 0.027, img.height * 1.225);
+
+        ctx.rotate(-Math.PI / 2);
+        ctx.scale(1, -1);
+      };
+
+      var x_scale = 293672.2068325253;
+      var y_scale = 397822.00000022055;
+      var x_offset = 35848504.38460734;
+      var y_offset = -14863206.834465902;
+
+      console.log(img.width * 0.03);
+      console.log(img.height * 1.22);
+
+      console.log(x_offset);
+      console.log(y_offset);
+
+      function drawGeoJson(geoJsonData) {
+        var ctx = canvas.getContext("2d");
+
+        geoJsonData.features.forEach((feature) => {
+          if (feature.geometry.type === "LineString") {
+            ctx.beginPath();
+
+            // Set style properties once
+            ctx.strokeStyle = "rgb(0, 0, 255)";
+            ctx.lineCap = "round";
+            ctx.lineWidth = 5;
+
+            // Move to the first coordinate
+            var firstCoord = feature.geometry.coordinates[0];
+            var x = firstCoord[0] * x_scale + x_offset;
+            var y = firstCoord[1] * y_scale + y_offset;
+            ctx.moveTo(x, y);
+
+            // Draw lines to subsequent coordinates
+            feature.geometry.coordinates.slice(1).forEach((coord) => {
+              var x = coord[0] * x_scale + x_offset;
+              var y = coord[1] * y_scale + y_offset;
+              ctx.lineTo(x, y);
+            });
+
+            // Stroke the path
+            ctx.stroke();
+            ctx.closePath();
+          }
+        });
+      }
+
+      function updateGraphFromGeoJson(geoJsonData, graph) {
+        let map = new graphlib.Graph({ directed: false });
+
+        geoJsonData.features.forEach((feature) => {
+          if (feature.geometry.type === "LineString") {
+            let coordinates = feature.geometry.coordinates;
+
+            for (let i = 0; i < coordinates.length - 1; i++) {
+              let [x1, y1] = coordinates[i];
+              let [x2, y2] = coordinates[i + 1];
+
+              // Convert to a string key for graph nodes
+              let node1 = `${x1},${y1}`;
+              let node2 = `${x2},${y2}`;
+
+              // Add nodes if they don't exist
+              if (!map.hasNode(node1)) map.setNode(node1);
+              if (!map.hasNode(node2)) map.setNode(node2);
+
+              // Calculate Euclidean distance as edge weight
+              let dx = x2 - x1;
+              let dy = y2 - y1;
+              let distance = Math.sqrt(dx * dx + dy * dy);
+
+              // Add edge if it doesn't exist
+              if (!map.hasEdge(node1, node2)) {
+                map.setEdge(node1, node2, distance);
+              }
+            }
+          }
+        });
+
+        return map;
+      }
+
+      function drawShortestPath(map, startNode, endNode) {
+        var ctx = canvas.getContext("2d");
+
+        let dijkstraResult = graphlib.alg.dijkstra(map, startNode, (e) =>
+          map.nodeEdges(e),
+        );
+        console.log(dijkstraResult);
+
+        // Extract the shortest path
+        let path = [];
+        let currentNode = endNode;
+
+        path.unshift(startNode);
+
+        for (let node of map.nodes()) {
+          if (dijkstraResult[node].distance != "Infinity") {
+            console.log([node, dijkstraResult[node].predecessor]);
+          }
+        }
+
+        console.log("Shortest Path:", path);
+
+        // Draw the shortest path
+        ctx.beginPath();
+        ctx.strokeStyle = "rgb(255, 0, 0)"; // Red color for the shortest path
+        ctx.lineCap = "round";
+        ctx.lineWidth = 5;
+
+        // Move to the first node
+        let firstNode = path[0].split(",");
+        let x = parseFloat(firstNode[0]) * x_scale + x_offset;
+        let y = parseFloat(firstNode[1]) * y_scale + y_offset;
+        ctx.moveTo(x, y);
+
+        // Draw lines to subsequent nodes
+        path.slice(1).forEach((node) => {
+          let [x, y] = node.split(",").map(parseFloat);
+          x = x * x_scale + x_offset;
+          y = y * y_scale + y_offset;
+          ctx.lineTo(x, y);
+        });
+
+        // Stroke the path
+        ctx.stroke();
+        ctx.closePath();
+      }
 
       fetch("graph.json")
         .then((response) => response.json())
-        .then((geojsonData) => {
-          console.log(geojsonData);
-          L.geoJSON(geojsonData, {
-            style: function (feature) {
-              return {
-                color: feature.properties.stroke,
-                weight: feature.properties["stroke-width"],
-                opacity: feature.properties["stroke-opacity"],
-              };
-            },
-          }).addTo(map);
-        })
-        .catch((error) => console.error("Error loading GeoJSON:", error));
-      /*
-      map.on("click", function (e) {
-        const lat = e.latlng.lat.toFixed(8); // Round to 6 decimal places
-        const lng = e.latlng.lng.toFixed(8); // Round to 6 decimal places
+        .then((geoJsonData) => {
+          let map = updateGraphFromGeoJson(geoJsonData, graphlib);
+          console.log(map);
 
-        console.log("Latitude: " + lat + "\nLong: " + lng);
+          drawGeoJson(geoJsonData);
 
-        L.marker([lat, lng])
-          .addTo(map)
-          .bindPopup(`You clicked here:<br>Lat: ${lat}, Long: ${lng}`)
-          .openPopup();
-      });
-      */
+          let startNode = "-122.067486,37.360507";
+          let endNode = "-122.067481,37.360504";
+
+          drawShortestPath(map, startNode, endNode);
+        });
+
+      // Add the canvas to the DOM
+      document.body.appendChild(canvas);
     </script>
   </body>
 </html>

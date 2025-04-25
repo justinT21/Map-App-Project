@@ -35,6 +35,10 @@ class Point:
     def distance(self, x, y):
         return math.sqrt((x - self.x) ** 2 + (y - self.y) ** 2)
 
+    def scale(self, params):
+        self.x = self.x * params["x_scale"] + params["x_offset"]
+        self.y = self.y * params["y_scale"] + params["y_offset"]
+
 
 class Graph:
     def __init__(self):
@@ -57,6 +61,9 @@ class Graph:
         if pt1 and pt2:
             pt1.addEdge(pt2)
             pt2.addEdge(pt1)
+
+    def size(self):
+        return len(self.points)
 
     def __repr__(self):
         string = "Graph: "
@@ -100,6 +107,12 @@ class Graph:
             final_x = rotated_x + center_x
             final_y = rotated_y + center_y
 
+            if final_x == 1031.1445148051941 and final_y == -179.0924576623372:
+                print(pt)
+
+            if final_x == 395.050514805194 and final_y == -1770.3804576623374:
+                print(pt)
+
             self.points.pop((pt.x, pt.y), None)
             new_pt = self.add_point(final_x, final_y)
             mapping[pt] = new_pt
@@ -125,8 +138,6 @@ class Graph:
         x_scale = xd2 / xd1
         y_scale = yd2 / yd1
 
-        # Calculate offsets for the new points
-
         x_tune = 0
         y_tune = 0
 
@@ -141,8 +152,8 @@ class Graph:
 
         # Iterate through the existing points and apply transformation
         for pt in list(self.points.values()):
-            new_x = pt.x * x_scale + x_offset
-            new_y = pt.y * y_scale + y_offset
+            new_x = pt.x * x_scale + x_offset + x_tune
+            new_y = pt.y * y_scale + y_offset + y_tune
 
             # Remove old point from points and add the transformed point
             del self.points[(pt.x, pt.y)]  # More efficient than pop()
@@ -251,6 +262,9 @@ class Graph:
 
         print(f"GeoJSON saved to {filepath}")
 
+    def from_geojson(self, filename):
+        pass
+
 
 df = pd.read_csv("data.csv")
 graph = Graph()
@@ -258,16 +272,37 @@ graph = Graph()
 for _, line in df.iterrows():
     graph.add_edge(line[0], line[1], line[2], line[3])
 
-# (245) 1031.1445148051941 -179.0924576623372 : -122.066278, 37.361
-# (303) 395.050514805194 -1770.3804576623374 : -122.068444, 37.357
+# (245) before rotation: (230.092, -527.286) After: (1031.1445148051941 -179.0924576623372) : -122.066278, 37.361
+# (303) before rotation: (1821.38, -1163.38) After : (395.050514805194 -1770.3804576623374) : -122.068444, 37.357
+
+# With rotation:
+scale_params = {
+    "x_scale": 293672.2068325253,
+    "y_scale": 397822.00000022055,
+    "x_offset": 35848504.38460734,
+    "y_offset": -14863206.834465902,
+}
+
 
 graph.rotate_90deg()
 
-pt1 = graph.points.get((1031.1445148051941, -179.0924576623372))
+pt1 = Point(1031.1445148051941, -179.0924576623372)
 new_pt1 = Point(-122.066278, 37.361)
 
-pt2 = graph.points.get((395.050514805194, -1770.3804576623374))
+pt2 = Point(395.050514805194, -1770.3804576623374)
 new_pt2 = Point(-122.068444, 37.357)
 
-graph.interpolate((pt2, new_pt2), (pt1, new_pt1))
-graph.to_geojson("./www/graph.json")
+graph.interpolate((pt1, new_pt1), (pt2, new_pt2))
+
+graph.to_geojson("type.json")
+
+"""
+pt = Point(-122.068120, 37.357733)  # Test pt for conversion
+
+pt.scale(scale_params)
+print(pt)
+
+graph.add_point(pt.x, pt.y)
+
+graph.display()
+"""

@@ -33,28 +33,34 @@ const state = {
     lastMouseY: null
 };
 
-// ===== Configuration =====
 const config = {
-    // Scale and offset values from interpolation.py
-    x_scale: 293672.2068325253,
-    y_scale: 397822.00000022055,
-    x_offset: 35848504.38460734,
-    y_offset: -14863206.834465902,
-    
-    // Map bounds for GPS conversion
+    // Affine transformation parameters (image → GPS after 90° rotation)
+    x_scale: 3.4051570994264277e-06,
+    y_scale: 2.513687025854391e-06,
+    x_offset: -122.07,
+    y_offset: 37.36145018238725,
+
+    // Centroid of rotated image
+    centroid: { x: 804.7150285714284, y: -753.7154862337657 },
+
+    // Optional fallback bounds
     mapBounds: {
-        width: 2000,  // Approximate width of the map in pixels
-        height: 1000, // Approximate height of the map in pixels
         lonMin: -122.07,
-        lonMax: -122.03,
-        latMin: 37.32,
-        latMax: 37.36
+        lonMax: -122.06,
+        latMin: 37.355,
+        latMax: 37.365,
+        width: 2000,
+        height: 1000
     }
 };
+
 
 // ===== Initialization =====
 async function init() {
     try {
+        // Test coordinate conversion functions
+        testCoordinateConversion();
+        
         await loadImage('SchoolMap.png');
         resizeCanvas();
         await loadGraphData('data.csv');
@@ -256,6 +262,7 @@ function selectPlace(place) {
     updatePlacesList();
     
     if (state.userLocation) {
+        console.log(place)
         findPath(state.userLocation, place);
     }
     
@@ -272,7 +279,9 @@ function findPath(start, end) {
     
     // Find closest graph nodes to start and end points
     const startNode = findClosestGraphNode(start.imageX, start.imageY);
+    console.log(startNode);
     const endNode = findClosestGraphNode(end.imageX, end.imageY);
+    console.log(endNode);
     
     if (!startNode || !endNode) {
         console.error('Could not find valid graph nodes');
@@ -339,7 +348,7 @@ function findClosestGraphNode(x, y) {
     });
     
     // Only return the node if it's within a reasonable distance
-    const MAX_DISTANCE = 100; // Adjust this threshold as needed
+    const MAX_DISTANCE = 500; // Adjust this threshold as needed
     return minDistance <= MAX_DISTANCE ? closestNode : null;
 }
 
@@ -596,7 +605,7 @@ function getUserLocation() {
 
 function setDefaultLocation() {
     state.userLocation = {
-        latitude: 37.3775,
+        latitude: 37.3775, 
         longitude: -122.0745,
         imageX: 1000,
         imageY: 500
@@ -622,38 +631,46 @@ function updateCoordinatesDisplay(latitude, longitude) {
     elements.copyButton.style.display = 'block';
 }
 
-// ===== Coordinate Conversion =====
 function gpsToImageCoordinates(longitude, latitude) {
     console.log(`Converting GPS: long ${longitude}, lat ${latitude}`);
-    console.log(`Using scales: x_scale ${config.x_scale}, y_scale ${config.y_scale}`);
-    console.log(`Using offsets: x_offset ${config.x_offset}, y_offset ${config.y_offset}`);
-    
-    const x = longitude * config.x_scale + config.x_offset;
-    const y = -(latitude * config.y_scale + config.y_offset);
-    
-    if (Math.abs(x) > 10000 || Math.abs(y) > 10000) {
-        console.warn(`Transformed coordinates (${x}, ${y}) seem out of reasonable range`);
-        
+    const { x_scale, y_scale, x_offset, y_offset, centroid } = config;
+
+    // Step 1: undo GPS scaling
+    const gpsX = (longitude - x_offset) / x_scale;
+    const gpsY = (latitude - y_offset) / y_scale;
+
+    // Step 2: rotate 90° counterclockwise around centroid
+    const dx = gpsX - centroid.x;
+    const dy = gpsY - centroid.y;
+
+    const imageX = centroid.x - dy;  // swapped signs for CCW
+    const imageY = centroid.y + dx;
+
+    // Sanity check
+    if (Math.abs(imageX) > 10000 || Math.abs(imageY) > 10000) {
+        console.warn(`Out-of-bounds image coordinates (${imageX}, ${imageY}), using fallback.`);
         const x2 = config.mapBounds.width * (longitude - config.mapBounds.lonMin) / (config.mapBounds.lonMax - config.mapBounds.lonMin);
-        const y2 = config.mapBounds.height * ((latitude - config.mapBounds.latMin) / (config.mapBounds.latMax - config.mapBounds.latMin));
-        
-        console.log(`Using fallback transformation: (${x2}, ${y2})`);
+        const y2 = config.mapBounds.height * (latitude - config.mapBounds.latMin) / (config.mapBounds.latMax - config.mapBounds.latMin);
         return { x: x2, y: y2 };
     }
-    
-    console.log(`Transformed coordinates: (${x}, ${y})`);
-    return { x, y };
+
+    return { x: imageX, y: imageY };
 }
 
 function imageToGpsCoordinates(x, y) {
-    if (Math.abs(x) > 10000 || Math.abs(y) > 10000) {
-        const longitude = config.mapBounds.lonMin + (x / config.mapBounds.width) * (config.mapBounds.lonMax - config.mapBounds.lonMin);
-        const latitude = config.mapBounds.latMin + (y / config.mapBounds.height) * (config.mapBounds.latMax - config.mapBounds.latMin);
-        return { longitude, latitude };
-    }
-    
-    const longitude = (x - config.x_offset) / config.x_scale;
-    const latitude = -(y - config.y_offset) / config.y_scale;
+    const { x_scale, y_scale, x_offset, y_offset, centroid } = config;
+
+    // Step 0: rotate 90° clockwise around centroid
+    const dx = x - centroid.x;
+    const dy = y - centroid.y;
+
+    const unrotatedX = centroid.x + dy;
+    const unrotatedY = centroid.y - dx;
+
+    // Step 1: apply inverse scale and offset
+    const longitude = unrotatedX * x_scale + x_offset;
+    const latitude = unrotatedY * y_scale + y_offset;
+
     return { longitude, latitude };
 }
 
@@ -895,6 +912,40 @@ async function promptForLocation() {
             setDefaultLocation();
             resolve();
         });
+    });
+}
+
+// ===== Helper Functions =====
+function testCoordinateConversion() {
+    // Test points within the map bounds
+    const testPoints = [
+        { x: 1000, y: 500 },  // Center-ish point
+        { x: 538.086, y: 332.921 },  // Main Entrance
+        { x: 1761, y: 698.598 },  // Cafeteria
+        { x: 1236.65, y: 504.378 },  // Library
+        { x: 643.965, y: 335.5 }  // Gymnasium
+    ];
+
+    console.log('Testing coordinate conversion functions...');
+    console.log('----------------------------------------');
+
+    testPoints.forEach((point, index) => {
+        // Convert image coordinates to GPS
+        const gps = imageToGpsCoordinates(point.x, point.y);
+        
+        // Convert GPS back to image coordinates
+        const imageCoords = gpsToImageCoordinates(gps.longitude, gps.latitude);
+        
+        // Calculate the difference
+        const xDiff = Math.abs(point.x - imageCoords.x);
+        const yDiff = Math.abs(point.y - imageCoords.y);
+        
+        console.log(`Test point ${index + 1}:`);
+        console.log(`Original image coordinates: (${point.x}, ${point.y})`);
+        console.log(`GPS coordinates: (${gps.latitude.toFixed(6)}, ${gps.longitude.toFixed(6)})`);
+        console.log(`Converted back to image: (${imageCoords.x.toFixed(3)}, ${imageCoords.y.toFixed(3)})`);
+        console.log(`Difference: (${xDiff.toFixed(3)}, ${yDiff.toFixed(3)})`);
+        console.log('----------------------------------------');
     });
 }
 

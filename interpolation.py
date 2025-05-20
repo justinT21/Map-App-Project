@@ -95,6 +95,8 @@ class Graph:
         center_x = x_sum / num_points
         center_y = y_sum / num_points
 
+        print(center_x, center_y)
+
         mapping = {}
 
         for pt in list(self.points.values()):
@@ -148,6 +150,10 @@ class Graph:
             (new_pt1.y - pt1.y * y_scale) + (new_pt2.y - pt2.y * y_scale)
         ) / 2 + y_tune
 
+        print("x scale: ", x_scale)
+        print("y scale: ",y_scale)
+        print("x offset: ",x_offset)
+        print("y offset: ",y_offset)
         mapping = {}
 
         # Iterate through the existing points and apply transformation
@@ -266,7 +272,7 @@ class Graph:
         pass
 
 
-df = pd.read_csv("data.csv")
+df = pd.read_csv("www/data.csv")
 graph = Graph()
 
 for _, line in df.iterrows():
@@ -294,15 +300,16 @@ new_pt2 = Point(-122.068444, 37.357)
 
 graph.interpolate((pt1, new_pt1), (pt2, new_pt2))
 
-graph.to_geojson("type.json")
+pt = Point(-122.068077, 37.357750)
 
+graph.add_point(pt.x, pt.y)
+
+graph.display()
 """
-pt = Point(-122.068120, 37.357733)  # Test pt for conversion
 
 pt.scale(scale_params)
 print(pt)
 
-graph.add_point(pt.x, pt.y)
 
 graph.display()
 """

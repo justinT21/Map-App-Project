@@ -90,7 +90,10 @@ class PathFinder {
   // A* pathfinding algorithm
   findPath(startX, startY, endX, endY) {
     // Find closest graph points to start and end
+    console.log("here");
     const startPoint = this.findClosestPoint(startX, startY);
+
+    console.log("here");
     const endPoint = this.findClosestPoint(endX, endY);
     
     if (!startPoint || !endPoint) {

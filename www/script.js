@@ -544,17 +544,28 @@ function drawLocationSelection(scale, offsetX, offsetY) {
         elements.ctx.arc(imgX, imgY, 10 / scale, 0, Math.PI * 2);
         elements.ctx.stroke();
         
-        // Show potential coordinates
+        // Show coordinates
         const potentialGps = imageToGpsCoordinates(imgX, imgY);
         elements.ctx.font = `${10 / scale}px monospace`;
         elements.ctx.fillStyle = 'red';
         elements.ctx.textAlign = 'center';
         elements.ctx.textBaseline = 'top';
+        
+        // Show GPS coordinates
         elements.ctx.fillText(
-            `(${potentialGps.latitude.toFixed(4)}, ${potentialGps.longitude.toFixed(4)})`, 
+            `GPS: (${potentialGps.latitude.toFixed(6)}, ${potentialGps.longitude.toFixed(6)})`, 
             imgX, 
             imgY + 20 / scale
         );
+        
+        // Show image coordinates if in debug mode
+        if (state.debugMode) {
+            elements.ctx.fillText(
+                `Image: (${imgX.toFixed(1)}, ${imgY.toFixed(1)})`, 
+                imgX, 
+                imgY + 35 / scale
+            );
+        }
     }
 }
 
@@ -647,7 +658,7 @@ function gpsToImageCoordinates(longitude, latitude) {
     const dy = gpsY - centroid.y;
 
     const imageX = centroid.x - dy;  // swapped signs for CCW
-    const imageY = centroid.y + dx;
+    const imageY = -(centroid.y + dx);
 
     // Sanity check
     if (Math.abs(imageX) > 10000 || Math.abs(imageY) > 10000) {
@@ -665,7 +676,7 @@ function imageToGpsCoordinates(x, y) {
 
     // Step 0: rotate 90° clockwise around centroid
     const dx = x - centroid.x;
-    const dy = y - centroid.y;
+    const dy = -y - centroid.y;  // Negate y to match gpsToImageCoordinates
 
     const unrotatedX = centroid.x + dy;
     const unrotatedY = centroid.y - dx;
@@ -939,6 +950,30 @@ function testCoordinateConversion() {
     console.log('Testing coordinate conversion functions...');
     console.log('----------------------------------------');
 
+    // Test specific GPS coordinate
+    const testGps = {
+        latitude: 37.359344,
+        longitude: -122.066030
+    };
+    
+    console.log('Testing specific GPS coordinate:');
+    console.log(`Input GPS: (${testGps.latitude}, ${testGps.longitude})`);
+    
+    // Convert GPS to image coordinates
+    const imageCoords = gpsToImageCoordinates(testGps.longitude, testGps.latitude);
+    console.log(`Converted to image: (${imageCoords.x.toFixed(3)}, ${imageCoords.y.toFixed(3)})`);
+    
+    // Convert back to GPS
+    const backToGps = imageToGpsCoordinates(imageCoords.x, imageCoords.y);
+    console.log(`Converted back to GPS: (${backToGps.latitude.toFixed(6)}, ${backToGps.longitude.toFixed(6)})`);
+    
+    // Calculate differences
+    const latDiff = Math.abs(testGps.latitude - backToGps.latitude);
+    const lonDiff = Math.abs(testGps.longitude - backToGps.longitude);
+    console.log(`GPS coordinate differences: (${latDiff.toFixed(6)}, ${lonDiff.toFixed(6)})`);
+    console.log('----------------------------------------');
+
+    // Test image coordinates
     testPoints.forEach((point, index) => {
         // Convert image coordinates to GPS
         const gps = imageToGpsCoordinates(point.x, point.y);

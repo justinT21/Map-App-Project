@@ -15,7 +15,9 @@ const elements = {
     placesList: document.getElementById('places-list'),
     locationSelectMode: document.getElementById('location-select-mode'),
     debugInfo: document.getElementById('debug-info'),
-    loadingIndicator: document.getElementById('loading')
+    loadingIndicator: document.getElementById('loading'),
+    toggleControlsBtn: document.getElementById('toggle-controls-btn'),
+    controls: document.getElementById('controls')
 };
 
 // ===== State Variables =====
@@ -30,7 +32,8 @@ const state = {
     pathToDestination: null,
     pathFinder: null,
     lastMouseX: null,
-    lastMouseY: null
+    lastMouseY: null,
+    isControlsVisible: false
 };
 
 const config = {
@@ -703,6 +706,13 @@ function updateDebugInfo() {
 
 // ===== Event Listeners =====
 function setupEventListeners() {
+    // Toggle controls button
+    elements.toggleControlsBtn.addEventListener('click', () => {
+        state.isControlsVisible = !state.isControlsVisible;
+        elements.controls.style.display = state.isControlsVisible ? 'block' : 'none';
+        elements.toggleControlsBtn.textContent = state.isControlsVisible ? 'Hide Controls' : 'Show Controls';
+    });
+
     // Search button click
     elements.searchButton.addEventListener('click', () => {
         const searchTerm = elements.searchInput.value.trim().toLowerCase();

@@ -33,7 +33,22 @@ const state = {
     pathFinder: null,
     lastMouseX: null,
     lastMouseY: null,
-    isControlsVisible: false
+    isControlsVisible: false,
+    locationWatchId: null,
+    zoomLevel: 1,
+    zoomCenter: { x: 0, y: 0 },
+    animation: {
+        isAnimating: false,
+        isResetting: false,
+        startTime: 0,
+        duration: 1000, // 1 second animation
+        startScale: 1,
+        targetScale: 1,
+        startOffsetX: 0,
+        startOffsetY: 0,
+        targetOffsetX: 0,
+        targetOffsetY: 0
+    }
 };
 
 const config = {
@@ -360,15 +375,77 @@ function drawMap() {
     // Clear canvas
     elements.ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
     
-    // Calculate scale to fit map to window
-    const scale = Math.min(
+    // Calculate base scale to fit map to window
+    const baseScale = Math.min(
         elements.canvas.width / state.mapImage.width,
         elements.canvas.height / state.mapImage.height
     ) * 0.9;
     
-    // Calculate centered position
-    const offsetX = (elements.canvas.width - state.mapImage.width * scale) / 2;
-    const offsetY = (elements.canvas.height - state.mapImage.height * scale) / 2;
+    // Apply zoom level if path is selected
+    let scale = baseScale;
+    let offsetX = (elements.canvas.width - state.mapImage.width * scale) / 2;
+    let offsetY = (elements.canvas.height - state.mapImage.height * scale) / 2;
+    
+    if (state.pathToDestination && state.userLocation && !state.animation.isResetting) {
+        // Calculate bounds of the path and user location
+        const pathPoints = state.pathToDestination.path;
+        let minX = state.userLocation.imageX, minY = state.userLocation.imageY;
+        let maxX = state.userLocation.imageX, maxY = state.userLocation.imageY;
+        
+        pathPoints.forEach(point => {
+            minX = Math.min(minX, point.x);
+            minY = Math.min(minY, point.y);
+            maxX = Math.max(maxX, point.x);
+            maxY = Math.max(maxY, point.y);
+        });
+        
+        // Add larger padding around the path and user location
+        const padding = 400; // Increased padding
+        minX -= padding;
+        minY -= padding;
+        maxX += padding;
+        maxY += padding;
+        
+        // Calculate the scale needed to fit the path and user location
+        const pathWidth = maxX - minX;
+        const pathHeight = maxY - minY;
+        
+        const targetScale = Math.min(
+            elements.canvas.width / pathWidth,
+            elements.canvas.height / pathHeight
+        ) * 0.9;
+        
+        // Calculate center point, weighted towards user location
+        const userWeight = 0.7; // Give more weight to user location
+        const pathCenterX = (minX + maxX) / 2;
+        const pathCenterY = (minY + maxY) / 2;
+        
+        const centerX = state.userLocation.imageX * userWeight + pathCenterX * (1 - userWeight);
+        const centerY = state.userLocation.imageY * userWeight + pathCenterY * (1 - userWeight);
+        
+        // Calculate target offsets to center the view
+        const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
+        const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+        
+        // Adjust offsets to center on the weighted center point
+        const finalOffsetX = targetOffsetX - (centerX - state.mapImage.width / 2) * targetScale;
+        const finalOffsetY = targetOffsetY - (centerY - state.mapImage.height / 2) * targetScale;
+        
+        // If we're not already animating, start a new animation
+        if (!state.animation.isAnimating) {
+            startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
+        }
+        
+        // Use current animation values
+        scale = state.zoomLevel;
+        offsetX = state.zoomCenter.x;
+        offsetY = state.zoomCenter.y;
+    } else {
+        // Use current animation values
+        scale = state.zoomLevel;
+        offsetX = state.zoomCenter.x;
+        offsetY = state.zoomCenter.y;
+    }
     
     // Save context
     elements.ctx.save();
@@ -571,49 +648,85 @@ function drawLocationSelection(scale, offsetX, offsetY) {
 
 // ===== Location Management =====
 function getUserLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            position => {
-                console.log('GPS location:', position.coords.latitude, position.coords.longitude);
-                
-                const imgCoords = gpsToImageCoordinates(
-                    position.coords.longitude,
-                    position.coords.latitude
-                );
-                
-                console.log('Converted to image coordinates:', imgCoords);
-                
-                const isInBounds = imgCoords.x > -2000 && imgCoords.x < 3000 && 
-                                 imgCoords.y > -2000 && imgCoords.y < 1000;
-                
-                if (!isInBounds) {
-                    console.warn('GPS coordinates converted to out-of-bounds image coordinates');
-                    setDefaultLocation();
-                } else {
-                    state.userLocation = {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                        imageX: imgCoords.x,
-                        imageY: imgCoords.y
-                    };
-                    
-                    elements.locationInfo.textContent = 'Your current location:';
-                    updateCoordinatesDisplay(position.coords.latitude, position.coords.longitude);
-                }
-                
-                drawMap();
-            },
-            error => {
-                console.error('Error getting location:', error);
-                elements.locationInfo.textContent = 'Error getting your location. Click map to set manually.';
-                elements.coordinatesDisplay.textContent = '';
-                setDefaultLocation();
+    return new Promise((resolve, reject) => {
+        if (navigator.geolocation) {
+            // Clear any existing watch
+            if (state.locationWatchId !== null) {
+                navigator.geolocation.clearWatch(state.locationWatchId);
             }
-        );
-    } else {
-        elements.locationInfo.textContent = 'Geolocation is not supported by this browser.';
-        elements.coordinatesDisplay.textContent = '';
-        setDefaultLocation();
+
+            // Start watching position
+            state.locationWatchId = navigator.geolocation.watchPosition(
+                position => {
+                    console.log('GPS location updated:', position.coords.latitude, position.coords.longitude);
+                    
+                    const imgCoords = gpsToImageCoordinates(
+                        position.coords.longitude,
+                        position.coords.latitude
+                    );
+                    
+                    console.log('Converted to image coordinates:', imgCoords);
+                    
+                    const isInBounds = imgCoords.x > -2000 && imgCoords.x < 3000 && 
+                                     imgCoords.y > -2000 && imgCoords.y < 1000;
+                    
+                    if (!isInBounds) {
+                        console.warn('GPS coordinates converted to out-of-bounds image coordinates');
+                        setDefaultLocation();
+                        // Don't stop watching - keep monitoring for when user comes back in bounds
+                    } else {
+                        // If we were using default location and now have valid coordinates, update
+                        if (state.userLocation && state.userLocation.latitude === 37.3775) {
+                            console.log('Valid location detected after being out of bounds');
+                        }
+                        
+                        state.userLocation = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            imageX: imgCoords.x,
+                            imageY: imgCoords.y
+                        };
+                        
+                        elements.locationInfo.textContent = 'Your current location:';
+                        updateCoordinatesDisplay(position.coords.latitude, position.coords.longitude);
+                    }
+                    
+                    // If we have a selected place, update the path
+                    if (state.selectedPlace) {
+                        findPath(state.userLocation, state.selectedPlace);
+                    }
+                    
+                    drawMap();
+                },
+                error => {
+                    console.error('Error getting location:', error);
+                    elements.locationInfo.textContent = 'Error getting your location. Click map to set manually.';
+                    elements.coordinatesDisplay.textContent = '';
+                    setDefaultLocation();
+                    reject(error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                }
+            );
+            
+            // Resolve the promise immediately since we're now watching position
+            resolve();
+        } else {
+            elements.locationInfo.textContent = 'Geolocation is not supported by this browser.';
+            elements.coordinatesDisplay.textContent = '';
+            setDefaultLocation();
+            reject(new Error('Geolocation not supported'));
+        }
+    });
+}
+
+function stopWatchingLocation() {
+    if (state.locationWatchId !== null) {
+        navigator.geolocation.clearWatch(state.locationWatchId);
+        state.locationWatchId = null;
     }
 }
 
@@ -770,6 +883,7 @@ function setupEventListeners() {
     
     // Manual location button
     elements.manualLocationButton.addEventListener('click', () => {
+        stopWatchingLocation();
         state.isLocationSelectMode = true;
         elements.locationSelectMode.style.display = 'block';
         elements.canvas.style.cursor = 'crosshair';
@@ -881,59 +995,12 @@ function toggleDebugMode() {
 
 // ===== Location Management =====
 async function promptForLocation() {
-    return new Promise((resolve) => {
-        const dialog = document.createElement('div');
-        dialog.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            z-index: 2000;
-            text-align: center;
-            max-width: 400px;
-        `;
-        
-        dialog.innerHTML = `
-            <h3>Get Your Location</h3>
-            <p>Would you like to share your location for better navigation?</p>
-            <div style="margin-top: 20px;">
-                <button id="share-location" style="
-                    background: #4CAF50;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    margin-right: 10px;
-                    cursor: pointer;
-                ">Share Location</button>
-                <button id="skip-location" style="
-                    background: #f0f0f0;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 4px;
-                    cursor: pointer;
-                ">Skip</button>
-            </div>
-        `;
-        
-        document.body.appendChild(dialog);
-        
-        document.getElementById('share-location').addEventListener('click', () => {
-            document.body.removeChild(dialog);
-            getUserLocation();
-            resolve();
-        });
-        
-        document.getElementById('skip-location').addEventListener('click', () => {
-            document.body.removeChild(dialog);
-            setDefaultLocation();
-            resolve();
-        });
-    });
+    try {
+        await getUserLocation();
+    } catch (error) {
+        console.error('Error getting location:', error);
+        setDefaultLocation();
+    }
 }
 
 // ===== Helper Functions =====
@@ -996,4 +1063,83 @@ function testCoordinateConversion() {
 
 // ===== Start Application =====
 setupEventListeners();
-init(); 
+init();
+
+// Add a function to reset zoom
+function resetZoom() {
+    if (!state.animation.isAnimating) {
+        // Clear the path and selection first
+        state.pathToDestination = null;
+        state.selectedPlace = null;
+        elements.locationInfo.textContent = 'Your location:';
+        updatePlacesList();
+        
+        // Then start reset animation
+        startZoomAnimation(1, 0, 0, true);
+    }
+}
+
+// Add a button to reset zoom
+const resetZoomButton = document.createElement('button');
+resetZoomButton.textContent = 'Reset View';
+resetZoomButton.style.cssText = `
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    width: 100%;
+`;
+resetZoomButton.addEventListener('click', resetZoom);
+elements.controls.appendChild(resetZoomButton);
+
+// Add animation functions
+function easeOutExpo(t) {
+    return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+}
+
+function startZoomAnimation(targetScale, targetOffsetX, targetOffsetY, isResetting = false) {
+    state.animation.isAnimating = true;
+    state.animation.isResetting = isResetting;
+    state.animation.startTime = performance.now();
+    state.animation.startScale = state.zoomLevel;
+    state.animation.targetScale = targetScale;
+    state.animation.startOffsetX = state.zoomCenter.x;
+    state.animation.startOffsetY = state.zoomCenter.y;
+    state.animation.targetOffsetX = targetOffsetX;
+    state.animation.targetOffsetY = targetOffsetY;
+    
+    requestAnimationFrame(animateZoom);
+}
+
+function animateZoom(currentTime) {
+    if (!state.animation.isAnimating) return;
+    
+    const elapsed = currentTime - state.animation.startTime;
+    const progress = Math.min(elapsed / state.animation.duration, 1);
+    const easedProgress = easeOutExpo(progress);
+    
+    // Update current zoom and offset
+    state.zoomLevel = state.animation.startScale + (state.animation.targetScale - state.animation.startScale) * easedProgress;
+    state.zoomCenter.x = state.animation.startOffsetX + (state.animation.targetOffsetX - state.animation.startOffsetX) * easedProgress;
+    state.zoomCenter.y = state.animation.startOffsetY + (state.animation.targetOffsetY - state.animation.startOffsetY) * easedProgress;
+    
+    // Redraw the map with current animation values
+    drawMap();
+    
+    if (progress < 1) {
+        requestAnimationFrame(animateZoom);
+    } else {
+        state.animation.isAnimating = false;
+        if (state.animation.isResetting) {
+            // Clear the path and selection after animation completes
+            state.pathToDestination = null;
+            state.selectedPlace = null;
+            elements.locationInfo.textContent = 'Your location:';
+            updatePlacesList();
+            state.animation.isResetting = false;
+        }
+    }
+} 

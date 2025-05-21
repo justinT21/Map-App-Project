@@ -112,8 +112,144 @@ function loadImage(src) {
 }
 
 function resizeCanvas() {
+    // Get the viewport dimensions
+    const isMobile = window.innerWidth <= 768;
+    
+    // Set canvas size to viewport size
     elements.canvas.width = window.innerWidth;
     elements.canvas.height = window.innerHeight;
+    
+    // Adjust controls panel for mobile
+    if (isMobile) {
+        elements.controls.style.cssText = `
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 15px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            max-height: 50vh;
+            overflow-y: auto;
+            transform: translateY(${state.isControlsVisible ? '0' : '100%'});
+            transition: transform 0.3s ease;
+        `;
+        
+        // Make the toggle button more mobile-friendly
+        elements.toggleControlsBtn.style.cssText = `
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            padding: 12px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            z-index: 1001;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            font-size: 16px;
+        `;
+        
+        // Adjust search input for mobile
+        elements.searchInput.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        `;
+        
+        // Adjust search button for mobile
+        elements.searchButton.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 10px;
+        `;
+        
+        // Adjust places list for mobile
+        elements.placesList.style.cssText = `
+            max-height: 30vh;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        `;
+        
+        // Adjust location info for mobile
+        elements.locationInfo.style.cssText = `
+            font-size: 16px;
+            margin-bottom: 10px;
+        `;
+        
+        // Adjust coordinates display for mobile
+        elements.coordinatesDisplay.style.cssText = `
+            font-size: 14px;
+            margin-bottom: 10px;
+        `;
+        
+        // Adjust copy button for mobile
+        elements.copyButton.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 10px;
+        `;
+        
+        // Adjust manual location button for mobile
+        elements.manualLocationButton.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 10px;
+        `;
+        
+        // Adjust reset button for mobile
+        resetZoomButton.style.cssText = `
+            width: 100%;
+            padding: 12px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 10px;
+        `;
+    } else {
+        // Desktop styles
+        elements.controls.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            width: 300px;
+            display: ${state.isControlsVisible ? 'block' : 'none'};
+        `;
+    }
+    
+    // Redraw the map with new dimensions
+    drawMap();
 }
 
 async function loadGraphData(csvFile) {
@@ -376,10 +512,33 @@ function drawMap() {
     elements.ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
     
     // Calculate base scale to fit map to window
-    const baseScale = Math.min(
-        elements.canvas.width / state.mapImage.width,
-        elements.canvas.height / state.mapImage.height
-    ) * 0.9;
+    const isMobile = window.innerWidth <= 768;
+    const isTablet = window.innerWidth <= 1024;
+    const isSmallScreen = window.innerWidth <= 1200;
+    
+    // Adjust base scale based on screen size
+    let baseScale;
+    if (isMobile) {
+        baseScale = Math.min(
+            elements.canvas.width / state.mapImage.width,
+            elements.canvas.height / state.mapImage.height
+        ) * 1.2; // 20% larger on mobile
+    } else if (isTablet) {
+        baseScale = Math.min(
+            elements.canvas.width / state.mapImage.width,
+            elements.canvas.height / state.mapImage.height
+        ) * 1.1; // 10% larger on tablets
+    } else if (isSmallScreen) {
+        baseScale = Math.min(
+            elements.canvas.width / state.mapImage.width,
+            elements.canvas.height / state.mapImage.height
+        ) * 1.05; // 5% larger on small screens
+    } else {
+        baseScale = Math.min(
+            elements.canvas.width / state.mapImage.width,
+            elements.canvas.height / state.mapImage.height
+        ) * 0.9; // Original scale for larger screens
+    }
     
     // Apply zoom level if path is selected
     let scale = baseScale;
@@ -963,6 +1122,18 @@ function setupEventListeners() {
             drawMap();
         }
     });
+    
+    // Add touch event handling for mobile
+    elements.canvas.addEventListener('touchstart', handleTouchStart, false);
+    elements.canvas.addEventListener('touchmove', handleTouchMove, false);
+    elements.canvas.addEventListener('touchend', handleTouchEnd, false);
+    
+    // Prevent default touch behavior to avoid scrolling while interacting with map
+    elements.canvas.addEventListener('touchmove', function(e) {
+        if (state.isLocationSelectMode) {
+            e.preventDefault();
+        }
+    }, { passive: false });
 }
 
 // ===== Helper Functions =====
@@ -1142,4 +1313,210 @@ function animateZoom(currentTime) {
             state.animation.isResetting = false;
         }
     }
+}
+
+// Add touch event handlers
+let touchStartX = 0;
+let touchStartY = 0;
+
+function handleTouchStart(e) {
+    if (state.isLocationSelectMode) {
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+    }
+}
+
+function handleTouchMove(e) {
+    if (state.isLocationSelectMode) {
+        const touch = e.touches[0];
+        state.lastMouseX = touch.clientX;
+        state.lastMouseY = touch.clientY;
+        drawMap();
+    }
+}
+
+function handleTouchEnd(e) {
+    if (state.isLocationSelectMode) {
+        const touch = e.changedTouches[0];
+        const touchEndX = touch.clientX;
+        const touchEndY = touch.clientY;
+        
+        // Only trigger click if touch didn't move much (to distinguish from scroll)
+        if (Math.abs(touchEndX - touchStartX) < 10 && Math.abs(touchEndY - touchStartY) < 10) {
+            const scale = Math.min(
+                elements.canvas.width / state.mapImage.width,
+                elements.canvas.height / state.mapImage.height
+            ) * 0.95;
+            
+            const offsetX = (elements.canvas.width - state.mapImage.width * scale) / 2;
+            const offsetY = (elements.canvas.height - state.mapImage.height * scale) / 2;
+            
+            const imageX = (touchEndX - offsetX) / scale;
+            const imageY = (touchEndY - offsetY) / scale;
+            
+            if (imageX >= 0 && imageX <= state.mapImage.width && imageY >= 0 && imageY <= state.mapImage.height) {
+                const gps = imageToGpsCoordinates(imageX, imageY);
+                
+                state.userLocation = {
+                    latitude: gps.latitude,
+                    longitude: gps.longitude,
+                    imageX: imageX,
+                    imageY: imageY
+                };
+                
+                elements.locationInfo.textContent = 'Your selected location:';
+                updateCoordinatesDisplay(gps.latitude, gps.longitude);
+                
+                if (state.selectedPlace) {
+                    findPath(state.userLocation, state.selectedPlace);
+                }
+                
+                state.isLocationSelectMode = false;
+                elements.locationSelectMode.style.display = 'none';
+                elements.canvas.style.cursor = 'default';
+                
+                if (state.debugMode) {
+                    updateDebugInfo();
+                }
+                
+                drawMap();
+            }
+        }
+    }
+}
+
+// Create UI elements
+function createUIElements() {
+    // Create controls panel
+    const controlsPanel = document.createElement('div');
+    controlsPanel.className = 'controls-panel';
+    
+    // Create search container
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'search-container';
+    
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.id = 'search-input';
+    searchInput.placeholder = 'Search places...';
+    
+    const searchButton = document.createElement('button');
+    searchButton.id = 'search-button';
+    searchButton.textContent = 'Search';
+    
+    searchContainer.appendChild(searchInput);
+    searchContainer.appendChild(searchButton);
+    
+    // Create places list
+    const placesList = document.createElement('div');
+    placesList.className = 'places-list';
+    
+    // Create location info
+    const locationInfo = document.createElement('div');
+    locationInfo.className = 'location-info';
+    locationInfo.textContent = 'Location: Not set';
+    
+    // Create coordinates display
+    const coordinatesDisplay = document.createElement('div');
+    coordinatesDisplay.className = 'coordinates-display';
+    coordinatesDisplay.textContent = 'Coordinates: Not set';
+    
+    // Create button group
+    const buttonGroup = document.createElement('div');
+    buttonGroup.className = 'button-group';
+    
+    const copyButton = document.createElement('button');
+    copyButton.id = 'copy-coords-btn';
+    copyButton.className = 'action-button';
+    copyButton.textContent = 'Copy Coordinates';
+    
+    const manualLocationBtn = document.createElement('button');
+    manualLocationBtn.id = 'manual-location-btn';
+    manualLocationBtn.className = 'action-button';
+    manualLocationBtn.textContent = 'Set Location Manually';
+    
+    const resetButton = document.createElement('button');
+    resetButton.id = 'reset-zoom-btn';
+    resetButton.className = 'action-button';
+    resetButton.textContent = 'Reset View';
+    
+    buttonGroup.appendChild(copyButton);
+    buttonGroup.appendChild(manualLocationBtn);
+    buttonGroup.appendChild(resetButton);
+    
+    // Create copy status
+    const copyStatus = document.createElement('div');
+    copyStatus.className = 'copy-status';
+    
+    // Create location select mode indicator
+    const locationSelectMode = document.createElement('div');
+    locationSelectMode.className = 'location-select-mode';
+    locationSelectMode.textContent = 'Click on map to set location';
+    
+    // Create toggle controls button
+    const toggleControlsBtn = document.createElement('button');
+    toggleControlsBtn.className = 'toggle-controls-btn';
+    toggleControlsBtn.textContent = 'Toggle Controls';
+    
+    // Create loading indicator
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'loading-indicator';
+    loadingIndicator.textContent = 'Loading...';
+    
+    // Create debug info
+    const debugInfo = document.createElement('div');
+    debugInfo.className = 'debug-info';
+    
+    // Assemble controls panel
+    controlsPanel.appendChild(searchContainer);
+    controlsPanel.appendChild(placesList);
+    controlsPanel.appendChild(locationInfo);
+    controlsPanel.appendChild(coordinatesDisplay);
+    controlsPanel.appendChild(buttonGroup);
+    controlsPanel.appendChild(copyStatus);
+    
+    // Add elements to document
+    document.body.appendChild(controlsPanel);
+    document.body.appendChild(locationSelectMode);
+    document.body.appendChild(toggleControlsBtn);
+    document.body.appendChild(loadingIndicator);
+    document.body.appendChild(debugInfo);
+    
+    // Initialize elements object
+    elements = {
+        canvas: document.getElementById('canvas'),
+        controls: controlsPanel,
+        searchInput: searchInput,
+        searchButton: searchButton,
+        placesList: placesList,
+        locationInfo: locationInfo,
+        coordinatesDisplay: coordinatesDisplay,
+        copyButton: copyButton,
+        copyStatus: copyStatus,
+        manualLocationBtn: manualLocationBtn,
+        locationSelectMode: locationSelectMode,
+        toggleControlsBtn: toggleControlsBtn,
+        resetButton: resetButton,
+        loadingIndicator: loadingIndicator,
+        debugInfo: debugInfo
+    };
+    
+    // Add event listeners
+    elements.searchButton.addEventListener('click', handleSearch);
+    elements.searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleSearch();
+    });
+    elements.copyButton.addEventListener('click', copyCoordinates);
+    elements.manualLocationBtn.addEventListener('click', toggleLocationSelectMode);
+    elements.toggleControlsBtn.addEventListener('click', toggleControls);
+    elements.resetButton.addEventListener('click', resetZoom);
+    elements.canvas.addEventListener('click', handleCanvasClick);
+    elements.canvas.addEventListener('mousemove', handleCanvasMouseMove);
+    elements.canvas.addEventListener('touchstart', handleTouchStart);
+    elements.canvas.addEventListener('touchmove', handleTouchMove);
+    elements.canvas.addEventListener('touchend', handleTouchEnd);
+    
+    // Initialize controls visibility
+    elements.controls.classList.add('visible');
 } 

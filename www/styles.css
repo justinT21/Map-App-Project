@@ -1,221 +1,305 @@
-body {
-  margin: 0;
-  padding: 0;
-  font-family: Arial, sans-serif;
-  overflow: hidden;
+/* Base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-#map-container {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+body {
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+#app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
 }
 
 #canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
 }
 
-#controls {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  width: 300px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 15px;
-  border-radius: 5px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-  transition: transform 0.3s ease-in-out;
+/* Controls Panel */
+.controls-panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    width: 300px;
+    display: none;
 }
 
-#search-container {
-  display: flex;
-  margin-bottom: 10px;
+/* Search Container */
+.search-container {
+    margin-bottom: 15px;
 }
 
 #search-input {
-  flex: 1;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px 0 0 4px;
-  font-size: 14px;
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
 }
 
 #search-button {
-  padding: 8px 12px;
-  background: #0066cc;
-  color: white;
-  border: none;
-  border-radius: 0 4px 4px 0;
-  cursor: pointer;
+    width: 100%;
+    padding: 10px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
-#location-info {
-  margin-top: 10px;
-  padding: 10px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-#coordinates-display {
-  margin-top: 5px;
-  font-family: monospace;
-  font-size: 13px;
-  color: #0066cc;
-  font-weight: bold;
-}
-
-#copy-coords-btn {
-  margin-top: 8px;
-  padding: 6px 12px;
-  background: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-}
-
-#copy-coords-btn:hover {
-  background: #45a049;
-}
-
-#copy-status {
-  display: none;
-  margin-top: 5px;
-  color: #45a049;
-  font-size: 12px;
-  text-align: center;
-}
-
-#location-select-mode {
-  display: none;
-  margin-top: 10px;
-  padding: 8px;
-  background: rgba(255, 200, 0, 0.8);
-  color: black;
-  font-weight: bold;
-  text-align: center;
-  border-radius: 4px;
-}
-
-#manual-location-btn {
-  margin-top: 8px;
-  padding: 6px 12px;
-  background: #ff9800;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#manual-location-btn:hover {
-  background: #e68a00;
-}
-
-#keybinds {
-  margin-top: 15px;
-  padding: 8px;
-  background: #e9e9e9;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-#keybinds h4 {
-  margin: 0 0 5px 0;
-  font-size: 13px;
-}
-
-.keybind {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 3px;
-}
-
-.key {
-  background: #ddd;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-family: monospace;
-  font-weight: bold;
-}
-
-#places-list {
-  margin-top: 15px;
-  max-height: 300px;
-  overflow-y: auto;
+/* Places List */
+.places-list {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 15px;
 }
 
 .place-item {
-  padding: 8px;
-  margin-bottom: 5px;
-  background: #eee;
-  border-radius: 4px;
-  cursor: pointer;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 4px;
 }
 
 .place-item:hover {
-  background: #ddd;
+    background: #f0f0f0;
 }
 
 .place-item.selected {
-  background: #d0e0f0;
-  font-weight: bold;
+    background: #e3f2fd;
 }
 
-#debug-overlay {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 10px;
-  border-radius: 5px;
-  font-size: 12px;
-  z-index: 1000;
+/* Location Info */
+.location-info {
+    margin-bottom: 10px;
+    font-weight: bold;
 }
 
-#loading {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 20px;
-  border-radius: 5px;
-  font-size: 18px;
-  z-index: 2000;
+.coordinates-display {
+    margin-bottom: 15px;
+    font-family: monospace;
 }
 
-.floating-btn {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 10px 15px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s;
-  z-index: 1001;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+/* Buttons */
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.floating-btn:hover {
-  background-color: #45a049;
+.action-button {
+    width: 100%;
+    padding: 10px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.action-button:hover {
+    background: #1976D2;
+}
+
+/* Status Messages */
+.copy-status {
+    display: none;
+    color: #4CAF50;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.location-select-mode {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    z-index: 1000;
+}
+
+/* Toggle Controls Button */
+.toggle-controls-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    z-index: 1001;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Loading Indicator */
+.loading-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    z-index: 2000;
+}
+
+/* Debug Info */
+.debug-info {
+    display: none;
+    margin-top: 15px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+    .controls-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        width: 100%;
+        border-radius: 0;
+        max-height: 50vh;
+        overflow-y: auto;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+    }
+
+    .controls-panel.visible {
+        transform: translateY(0);
+    }
+
+    .toggle-controls-btn {
+        bottom: 15px;
+        right: 15px;
+        padding: 12px 20px;
+        font-size: 16px;
+    }
+
+    #search-input,
+    .action-button,
+    #search-button {
+        padding: 12px;
+        font-size: 16px;
+    }
+
+    .places-list {
+        max-height: 30vh;
+    }
+
+    .location-info {
+        font-size: 16px;
+    }
+
+    .coordinates-display {
+        font-size: 14px;
+    }
+}
+
+/* Large Screen Styles */
+@media (min-width: 1200px) {
+    .controls-panel {
+        width: 400px;
+        padding: 30px;
+        font-size: 16px;
+    }
+
+    .toggle-controls-btn {
+        padding: 15px 30px;
+        font-size: 18px;
+        border-radius: 30px;
+    }
+
+    #search-input {
+        padding: 15px;
+        font-size: 16px;
+    }
+
+    #search-button {
+        padding: 15px;
+        font-size: 16px;
+    }
+
+    .action-button {
+        padding: 15px;
+        font-size: 16px;
+    }
+
+    .places-list {
+        max-height: 300px;
+    }
+
+    .location-info {
+        font-size: 18px;
+    }
+
+    .coordinates-display {
+        font-size: 16px;
+    }
+}
+
+/* Extra Large Screen Styles */
+@media (min-width: 1600px) {
+    .controls-panel {
+        width: 500px;
+        padding: 40px;
+        font-size: 18px;
+    }
+
+    .toggle-controls-btn {
+        padding: 20px 40px;
+        font-size: 20px;
+        border-radius: 35px;
+    }
+
+    #search-input {
+        padding: 20px;
+        font-size: 18px;
+    }
+
+    #search-button {
+        padding: 20px;
+        font-size: 18px;
+    }
+
+    .action-button {
+        padding: 20px;
+        font-size: 18px;
+    }
+
+    .places-list {
+        max-height: 400px;
+    }
+
+    .location-info {
+        font-size: 20px;
+    }
+
+    .coordinates-display {
+        font-size: 18px;
+    }
 } 

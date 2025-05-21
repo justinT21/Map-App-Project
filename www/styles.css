@@ -28,7 +28,7 @@ body {
 .controls-panel {
     position: fixed;
     top: 20px;
-    right: 20px;
+    left: 20px;
     background: white;
     padding: 20px;
     border-radius: 8px;
@@ -139,7 +139,7 @@ body {
 .toggle-controls-btn {
     position: fixed;
     bottom: 20px;
-    right: 20px;
+    left: 20px;
     padding: 10px 20px;
     background: #2196F3;
     color: white;
@@ -195,7 +195,7 @@ body {
 
     .toggle-controls-btn {
         bottom: 15px;
-        right: 15px;
+        left: 15px;
         padding: 12px 20px;
         font-size: 16px;
     }
@@ -302,4 +302,4 @@ body {
     .coordinates-display {
         font-size: 18px;
     }
-} 
+}

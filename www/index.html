@@ -1,42 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="School Map Navigation - Find your way around campus">
   <title>Map Navigation</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <div id="app">
     <canvas id="canvas"></canvas>
-    
+
     <div id="controls" class="controls-panel">
       <div class="search-container">
         <input type="text" id="search-input" placeholder="Search places...">
         <button id="search-button">Search</button>
       </div>
-      
+
       <div id="places-list" class="places-list"></div>
-      
+
       <div id="location-info" class="location-info"></div>
       <div id="coordinates-display" class="coordinates-display"></div>
-      
+
       <div class="button-group">
         <button id="copy-coords-btn" class="action-button">Copy Coordinates</button>
         <button id="manual-location-btn" class="action-button">Set Location Manually</button>
         <button id="reset-view-btn" class="action-button">Reset View</button>
       </div>
-      
+
       <div id="copy-status" class="copy-status">Coordinates copied!</div>
       <div id="location-select-mode" class="location-select-mode">Click anywhere on the map to set your location</div>
       <div id="debug-info" class="debug-info"></div>
     </div>
-    
+
     <button id="toggle-controls-btn" class="toggle-controls-btn">Show Controls</button>
     <div id="loading" class="loading-indicator">Loading...</div>
   </div>
-  
+
   <script type="module" src="script.js"></script>
 </body>
+
 </html>

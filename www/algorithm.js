@@ -32,28 +32,28 @@ class PathFinder {
   // Build adjacency list representation of the graph
   buildGraph() {
     const graph = new Map();
-    
+
     this.graphData.forEach(edge => {
       const point1 = `${edge.x1},${edge.y1}`;
       const point2 = `${edge.x2},${edge.y2}`;
-      
+
       if (!graph.has(point1)) {
         graph.set(point1, new Map());
       }
       if (!graph.has(point2)) {
         graph.set(point2, new Map());
       }
-      
+
       // Calculate distance between points
       const distance = Math.sqrt(
-        Math.pow(edge.x2 - edge.x1, 2) + 
+        Math.pow(edge.x2 - edge.x1, 2) +
         Math.pow(edge.y2 - edge.y1, 2)
       );
-      
+
       graph.get(point1).set(point2, distance);
       graph.get(point2).set(point1, distance);
     });
-    
+
     return graph;
   }
 
@@ -61,21 +61,21 @@ class PathFinder {
   findClosestPoint(x, y, maxDistance = 100) {
     let closestPoint = null;
     let minDistance = Infinity;
-    
+
     for (const edge of this.graphData) {
       // Check distance to first point
       const dist1 = Math.sqrt(
-        Math.pow(edge.x1 - x, 2) + 
+        Math.pow(edge.x1 - x, 2) +
         Math.pow(edge.y1 - y, 2)
       );
       if (dist1 < minDistance) {
         minDistance = dist1;
         closestPoint = `${edge.x1},${edge.y1}`;
       }
-      
+
       // Check distance to second point
       const dist2 = Math.sqrt(
-        Math.pow(edge.x2 - x, 2) + 
+        Math.pow(edge.x2 - x, 2) +
         Math.pow(edge.y2 - y, 2)
       );
       if (dist2 < minDistance) {
@@ -83,19 +83,16 @@ class PathFinder {
         closestPoint = `${edge.x2},${edge.y2}`;
       }
     }
-    
+
     return minDistance < maxDistance ? closestPoint : null;
   }
 
   // A* pathfinding algorithm
   findPath(startX, startY, endX, endY) {
     // Find closest graph points to start and end
-    console.log("here");
     const startPoint = this.findClosestPoint(startX, startY);
-
-    console.log("here");
     const endPoint = this.findClosestPoint(endX, endY);
-    
+
     if (!startPoint || !endPoint) {
       return null;
     }
@@ -163,23 +160,41 @@ class PathFinder {
     return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
   }
 
+  // Calculate bounds of a path including start and end points
+  getPathBounds(path, startX, startY, endX, endY) {
+    let minX = Math.min(startX, endX);
+    let minY = Math.min(startY, endY);
+    let maxX = Math.max(startX, endX);
+    let maxY = Math.max(startY, endY);
+
+    // Include all path points in bounds
+    path.forEach(point => {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    });
+
+    return { minX, minY, maxX, maxY };
+  }
+
   // Reconstruct path from start to end
   reconstructPath(cameFrom, current, startX, startY, endX, endY) {
     const path = [];
-    
+
     // Add end point
     path.push({ x: endX, y: endY });
-    
+
     // Reconstruct path through graph
     while (current) {
       const [x, y] = current.split(',').map(Number);
       path.unshift({ x, y });
       current = cameFrom.get(current);
     }
-    
+
     // Add start point
     path.unshift({ x: startX, y: startY });
-    
+
     return path;
   }
 }

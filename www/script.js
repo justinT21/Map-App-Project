@@ -63,12 +63,33 @@ const config = {
 
     // Optional fallback bounds
     mapBounds: {
-        lonMin: -122.07,
-        lonMax: -122.06,
-        latMin: 37.355,
-        latMax: 37.365,
+        lonMin: -122.06885,
+        lonMax: -122.06500,
+        latMin: 37.35687,
+        latMax: 37.36138,
         width: 2000,
         height: 1000
+    },
+
+    // Default location when GPS is unavailable or out of bounds
+    defaultLocation: {
+        latitude: 37.3775,
+        longitude: -122.0745,
+        imageX: 1000,
+        imageY: 500
+    },
+
+    // Zoom levels for different scenarios
+    zoom: {
+        singlePoint: 1.2,  // Zoom level when focusing on a single point
+        base: 0.9,        // Base zoom level multiplier for fitting map to window
+        minPathScale: 0.3 // Minimum scale factor for path view (prevents zooming out too far)
+    },
+
+    // Path and view settings
+    view: {
+        playerWeight: 0.5,  // Weight given to player location when calculating view center
+        pathPadding: 300    // Padding around path when calculating view bounds
     }
 };
 
@@ -78,23 +99,23 @@ async function init() {
     try {
         // Test coordinate conversion functions
         testCoordinateConversion();
-        
+
         await loadImage('SchoolMap.png');
         resizeCanvas();
         await loadGraphData('data.csv');
-        
+
         if (state.graphData.length === 0) {
             console.log("First attempt to load CSV failed, trying alternative method...");
             await loadGraphDataDirectly();
         }
-        
+
         state.pathFinder = new PathFinder(state.graphData);
         initializePlaces();
         drawMap();
-        
+
         // Prompt for location at startup
         await promptForLocation();
-        
+
         elements.loadingIndicator.style.display = 'none';
     } catch (error) {
         console.error('Error initializing application:', error);
@@ -112,144 +133,8 @@ function loadImage(src) {
 }
 
 function resizeCanvas() {
-    // Get the viewport dimensions
-    const isMobile = window.innerWidth <= 768;
-    
-    // Set canvas size to viewport size
     elements.canvas.width = window.innerWidth;
     elements.canvas.height = window.innerHeight;
-    
-    // Adjust controls panel for mobile
-    if (isMobile) {
-        elements.controls.style.cssText = `
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            padding: 15px;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            max-height: 50vh;
-            overflow-y: auto;
-            transform: translateY(${state.isControlsVisible ? '0' : '100%'});
-            transition: transform 0.3s ease;
-        `;
-        
-        // Make the toggle button more mobile-friendly
-        elements.toggleControlsBtn.style.cssText = `
-            position: fixed;
-            bottom: 15px;
-            right: 15px;
-            padding: 12px 20px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            z-index: 1001;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            font-size: 16px;
-        `;
-        
-        // Adjust search input for mobile
-        elements.searchInput.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        `;
-        
-        // Adjust search button for mobile
-        elements.searchButton.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 10px;
-        `;
-        
-        // Adjust places list for mobile
-        elements.placesList.style.cssText = `
-            max-height: 30vh;
-            overflow-y: auto;
-            margin-bottom: 10px;
-        `;
-        
-        // Adjust location info for mobile
-        elements.locationInfo.style.cssText = `
-            font-size: 16px;
-            margin-bottom: 10px;
-        `;
-        
-        // Adjust coordinates display for mobile
-        elements.coordinatesDisplay.style.cssText = `
-            font-size: 14px;
-            margin-bottom: 10px;
-        `;
-        
-        // Adjust copy button for mobile
-        elements.copyButton.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 10px;
-        `;
-        
-        // Adjust manual location button for mobile
-        elements.manualLocationButton.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 10px;
-        `;
-        
-        // Adjust reset button for mobile
-        resetZoomButton.style.cssText = `
-            width: 100%;
-            padding: 12px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 10px;
-        `;
-    } else {
-        // Desktop styles
-        elements.controls.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            width: 300px;
-            display: ${state.isControlsVisible ? 'block' : 'none'};
-        `;
-    }
-    
-    // Redraw the map with new dimensions
-    drawMap();
 }
 
 async function loadGraphData(csvFile) {
@@ -258,12 +143,12 @@ async function loadGraphData(csvFile) {
         if (!response.ok) {
             throw new Error(`Failed to load ${csvFile}: ${response.status} ${response.statusText}`);
         }
-        
+
         const csvText = await response.text();
         const lines = csvText.split('\n');
-        
+
         console.log(`CSV file loaded: ${lines.length} lines including header`);
-        
+
         // Skip header row and parse data
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
@@ -280,7 +165,7 @@ async function loadGraphData(csvFile) {
                 }
             }
         }
-        
+
         console.log(`Loaded ${state.graphData.length} graph edges from CSV`);
     } catch (error) {
         console.error('Error loading CSV data:', error);
@@ -302,7 +187,7 @@ async function loadGraphDataDirectly() {
         { x1: 500, y1: -700, x2: 700, y2: -600, weight: 1 },
         { x1: 700, y1: -600, x2: 900, y2: -700, weight: 1 }
     ];
-    
+
     console.log(`Loaded ${state.graphData.length} fallback graph edges`);
     return true;
 }
@@ -310,12 +195,12 @@ async function loadGraphDataDirectly() {
 // ===== Places Management =====
 function initializePlaces() {
     const uniquePoints = new Map();
-    
+
     // Extract unique points from graph data
     state.graphData.forEach(edge => {
         const id1 = `${edge.x1},${edge.y1}`;
         const id2 = `${edge.x2},${edge.y2}`;
-        
+
         if (!uniquePoints.has(id1)) {
             uniquePoints.set(id1, {
                 id: id1,
@@ -326,7 +211,7 @@ function initializePlaces() {
                 imageY: edge.y1
             });
         }
-        
+
         if (!uniquePoints.has(id2)) {
             uniquePoints.set(id2, {
                 id: id2,
@@ -338,9 +223,9 @@ function initializePlaces() {
             });
         }
     });
-    
+
     state.places = Array.from(uniquePoints.values());
-    
+
     // Add named locations
     const namedLocations = [
         { id: 'entrance', name: 'Main Entrance', x: 538.086, y: 332.921 },
@@ -349,23 +234,23 @@ function initializePlaces() {
         { id: 'gym', name: 'Gymnasium', x: 643.965, y: 335.5 },
         { id: 'admin', name: 'Administration', x: 950, y: 400 }
     ];
-    
+
     namedLocations.forEach(loc => {
         let closestPlace = null;
         let minDistance = Infinity;
-        
+
         state.places.forEach(place => {
             const distance = Math.sqrt(
-                Math.pow(place.x - loc.x, 2) + 
+                Math.pow(place.x - loc.x, 2) +
                 Math.pow(place.y - loc.y, 2)
             );
-            
+
             if (distance < minDistance) {
                 minDistance = distance;
                 closestPlace = place;
             }
         });
-        
+
         if (closestPlace && minDistance < 50) {
             closestPlace.name = loc.name;
             closestPlace.id = loc.id;
@@ -380,32 +265,32 @@ function initializePlaces() {
             });
         }
     });
-    
+
     // Calculate GPS coordinates for each place
     state.places.forEach(place => {
         const gps = imageToGpsCoordinates(place.imageX, place.imageY);
         place.longitude = gps.longitude;
         place.latitude = gps.latitude;
     });
-    
+
     updatePlacesList();
 }
 
 function updatePlacesList() {
     elements.placesList.innerHTML = '<h3>Places</h3>';
-    
+
     state.places.forEach(place => {
         if (place.name.startsWith('Location')) return;
-        
+
         const item = document.createElement('div');
         item.className = 'place-item';
         if (state.selectedPlace && state.selectedPlace.id === place.id) {
             item.classList.add('selected');
         }
-        
+
         item.textContent = place.name;
         item.dataset.id = place.id;
-        
+
         item.addEventListener('click', () => selectPlace(place));
         elements.placesList.appendChild(item);
     });
@@ -414,12 +299,12 @@ function updatePlacesList() {
 function selectPlace(place) {
     state.selectedPlace = place;
     updatePlacesList();
-    
+
     if (state.userLocation) {
         console.log(place)
         findPath(state.userLocation, place);
     }
-    
+
     elements.locationInfo.textContent = `Selected: ${place.name}`;
     drawMap();
 }
@@ -430,21 +315,21 @@ function findPath(start, end) {
         console.error('PathFinder not initialized');
         return;
     }
-    
+
     // Find closest graph nodes to start and end points
     const startNode = findClosestGraphNode(start.imageX, start.imageY);
     console.log(startNode);
     const endNode = findClosestGraphNode(end.imageX, end.imageY);
     console.log(endNode);
-    
+
     if (!startNode || !endNode) {
         console.error('Could not find valid graph nodes');
         return;
     }
-    
+
     // Find path between the closest graph nodes
     const path = state.pathFinder.findPath(startNode.x, startNode.y, endNode.x, endNode.y);
-    
+
     if (path) {
         // Add straight lines from actual points to their closest graph nodes
         const fullPath = [
@@ -454,12 +339,61 @@ function findPath(start, end) {
             { x: endNode.x, y: endNode.y },        // Closest graph node to end
             { x: end.imageX, y: end.imageY }       // End point
         ];
-        
+
         state.pathToDestination = {
             start: start,
             end: end,
             path: fullPath
         };
+
+        // Get bounds of the path
+        const bounds = state.pathFinder.getPathBounds(
+            fullPath,
+            start.imageX,
+            start.imageY,
+            end.imageX,
+            end.imageY
+        );
+
+        // Add padding around the path
+        const padding = config.view.pathPadding;
+        bounds.minX -= padding;
+        bounds.minY -= padding;
+        bounds.maxX += padding;
+        bounds.maxY += padding;
+
+        // Calculate the scale needed to fit the path
+        const pathWidth = bounds.maxX - bounds.minX;
+        const pathHeight = bounds.maxY - bounds.minY;
+
+        // Calculate scale with minimum limit
+        const targetScale = Math.max(
+            Math.min(
+                elements.canvas.width / pathWidth,
+                elements.canvas.height / pathHeight
+            ),
+            config.zoom.minPathScale
+        );
+
+        // Calculate center point, weighted towards user location
+        const userWeight = config.view.playerWeight;
+        const pathCenterX = (bounds.minX + bounds.maxX) / 2;
+        const pathCenterY = (bounds.minY + bounds.maxY) / 2;
+
+        const centerX = start.imageX * userWeight + pathCenterX * (1 - userWeight);
+        const centerY = start.imageY * userWeight + pathCenterY * (1 - userWeight);
+
+        // Calculate target offsets to center the view
+        const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
+        const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+
+        // Adjust offsets to center on the weighted center point
+        const finalOffsetX = targetOffsetX - (centerX - state.mapImage.width / 2) * targetScale;
+        const finalOffsetY = targetOffsetY - (centerY - state.mapImage.height / 2) * targetScale;
+
+        // Start zoom animation immediately
+        startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
+        requestAnimationFrame(() => drawMap());
     } else {
         // Fallback to direct path if no path found
         state.pathToDestination = {
@@ -470,37 +404,54 @@ function findPath(start, end) {
                 { x: end.imageX, y: end.imageY }
             ]
         };
+
+        // Start zoom animation for direct path
+        const baseScale = Math.min(
+            elements.canvas.width / state.mapImage.width,
+            elements.canvas.height / state.mapImage.height
+        ) * config.zoom.base;
+
+        const targetScale = baseScale * config.zoom.singlePoint;
+        const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
+        const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+
+        // Adjust offsets to center on the midpoint
+        const midX = (start.imageX + end.imageX) / 2;
+        const midY = (start.imageY + end.imageY) / 2;
+        const finalOffsetX = targetOffsetX - (midX - state.mapImage.width / 2) * targetScale;
+        const finalOffsetY = targetOffsetY - (midY - state.mapImage.height / 2) * targetScale;
+
+        startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
+        requestAnimationFrame(() => drawMap());
     }
-    
-    drawMap();
 }
 
 // Helper function to find the closest graph node to a point
 function findClosestGraphNode(x, y) {
     let closestNode = null;
     let minDistance = Infinity;
-    
+
     // Create a set of unique nodes from the graph data
     const nodes = new Set();
     state.graphData.forEach(edge => {
         nodes.add(`${edge.x1},${edge.y1}`);
         nodes.add(`${edge.x2},${edge.y2}`);
     });
-    
+
     // Find the closest node
     nodes.forEach(nodeStr => {
         const [nodeX, nodeY] = nodeStr.split(',').map(Number);
         const distance = Math.sqrt(
-            Math.pow(x - nodeX, 2) + 
+            Math.pow(x - nodeX, 2) +
             Math.pow(y - nodeY, 2)
         );
-        
+
         if (distance < minDistance) {
             minDistance = distance;
             closestNode = { x: nodeX, y: nodeY };
         }
     });
-    
+
     // Only return the node if it's within a reasonable distance
     const MAX_DISTANCE = 500; // Adjust this threshold as needed
     return minDistance <= MAX_DISTANCE ? closestNode : null;
@@ -510,91 +461,69 @@ function findClosestGraphNode(x, y) {
 function drawMap() {
     // Clear canvas
     elements.ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-    
+
     // Calculate base scale to fit map to window
-    const isMobile = window.innerWidth <= 768;
-    const isTablet = window.innerWidth <= 1024;
-    const isSmallScreen = window.innerWidth <= 1200;
-    
-    // Adjust base scale based on screen size
-    let baseScale;
-    if (isMobile) {
-        baseScale = Math.min(
-            elements.canvas.width / state.mapImage.width,
-            elements.canvas.height / state.mapImage.height
-        ) * 1.2; // 20% larger on mobile
-    } else if (isTablet) {
-        baseScale = Math.min(
-            elements.canvas.width / state.mapImage.width,
-            elements.canvas.height / state.mapImage.height
-        ) * 1.1; // 10% larger on tablets
-    } else if (isSmallScreen) {
-        baseScale = Math.min(
-            elements.canvas.width / state.mapImage.width,
-            elements.canvas.height / state.mapImage.height
-        ) * 1.05; // 5% larger on small screens
-    } else {
-        baseScale = Math.min(
-            elements.canvas.width / state.mapImage.width,
-            elements.canvas.height / state.mapImage.height
-        ) * 0.9; // Original scale for larger screens
-    }
-    
+    const baseScale = Math.min(
+        elements.canvas.width / state.mapImage.width,
+        elements.canvas.height / state.mapImage.height
+    ) * config.zoom.base;
+
     // Apply zoom level if path is selected
     let scale = baseScale;
     let offsetX = (elements.canvas.width - state.mapImage.width * scale) / 2;
     let offsetY = (elements.canvas.height - state.mapImage.height * scale) / 2;
-    
+
     if (state.pathToDestination && state.userLocation && !state.animation.isResetting) {
-        // Calculate bounds of the path and user location
-        const pathPoints = state.pathToDestination.path;
-        let minX = state.userLocation.imageX, minY = state.userLocation.imageY;
-        let maxX = state.userLocation.imageX, maxY = state.userLocation.imageY;
-        
-        pathPoints.forEach(point => {
-            minX = Math.min(minX, point.x);
-            minY = Math.min(minY, point.y);
-            maxX = Math.max(maxX, point.x);
-            maxY = Math.max(maxY, point.y);
-        });
-        
-        // Add larger padding around the path and user location
-        const padding = 400; // Increased padding
-        minX -= padding;
-        minY -= padding;
-        maxX += padding;
-        maxY += padding;
-        
-        // Calculate the scale needed to fit the path and user location
-        const pathWidth = maxX - minX;
-        const pathHeight = maxY - minY;
-        
-        const targetScale = Math.min(
-            elements.canvas.width / pathWidth,
-            elements.canvas.height / pathHeight
-        ) * 0.9;
-        
+        // Get bounds of the path
+        const bounds = state.pathFinder.getPathBounds(
+            state.pathToDestination.path,
+            state.userLocation.imageX,
+            state.userLocation.imageY,
+            state.pathToDestination.end.imageX,
+            state.pathToDestination.end.imageY
+        );
+
+        // Add padding around the path
+        const padding = config.view.pathPadding;
+        bounds.minX -= padding;
+        bounds.minY -= padding;
+        bounds.maxX += padding;
+        bounds.maxY += padding;
+
+        // Calculate the scale needed to fit the path
+        const pathWidth = bounds.maxX - bounds.minX;
+        const pathHeight = bounds.maxY - bounds.minY;
+
+        // Calculate scale with minimum limit
+        const targetScale = Math.max(
+            Math.min(
+                elements.canvas.width / pathWidth,
+                elements.canvas.height / pathHeight
+            ),
+            config.zoom.minPathScale
+        );
+
         // Calculate center point, weighted towards user location
-        const userWeight = 0.7; // Give more weight to user location
-        const pathCenterX = (minX + maxX) / 2;
-        const pathCenterY = (minY + maxY) / 2;
-        
+        const userWeight = config.view.playerWeight;
+        const pathCenterX = (bounds.minX + bounds.maxX) / 2;
+        const pathCenterY = (bounds.minY + bounds.maxY) / 2;
+
         const centerX = state.userLocation.imageX * userWeight + pathCenterX * (1 - userWeight);
         const centerY = state.userLocation.imageY * userWeight + pathCenterY * (1 - userWeight);
-        
+
         // Calculate target offsets to center the view
         const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
         const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
-        
+
         // Adjust offsets to center on the weighted center point
         const finalOffsetX = targetOffsetX - (centerX - state.mapImage.width / 2) * targetScale;
         const finalOffsetY = targetOffsetY - (centerY - state.mapImage.height / 2) * targetScale;
-        
+
         // If we're not already animating, start a new animation
         if (!state.animation.isAnimating) {
             startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
         }
-        
+
         // Use current animation values
         scale = state.zoomLevel;
         offsetX = state.zoomCenter.x;
@@ -605,39 +534,39 @@ function drawMap() {
         offsetX = state.zoomCenter.x;
         offsetY = state.zoomCenter.y;
     }
-    
+
     // Save context
     elements.ctx.save();
-    
+
     // Draw map image
     elements.ctx.translate(offsetX, offsetY);
     elements.ctx.scale(scale, scale);
     elements.ctx.drawImage(state.mapImage, 0, 0);
-    
+
     // Draw graph edges
     drawGraphEdges(scale);
-    
+
     // Draw path if available
     if (state.pathToDestination) {
         drawPath(scale);
     }
-    
+
     // Draw places
     drawPlaces(scale);
-    
+
     // Draw user location if available
     if (state.userLocation) {
         drawUserLocation(scale);
     }
-    
+
     // Draw location selection indicator if in selection mode
     if (state.isLocationSelectMode) {
         drawLocationSelection(scale, offsetX, offsetY);
     }
-    
+
     // Restore context
     elements.ctx.restore();
-    
+
     // Update debug info if enabled
     if (state.debugMode) {
         updateDebugInfo();
@@ -647,52 +576,52 @@ function drawMap() {
 function drawGraphEdges(scale) {
     elements.ctx.strokeStyle = 'rgba(0, 0, 255, 0.6)';
     elements.ctx.lineWidth = 2 / scale;
-    
+
     let drawnEdges = 0;
-    
+
     state.graphData.forEach(edge => {
         if (isNaN(edge.x1) || isNaN(edge.y1) || isNaN(edge.x2) || isNaN(edge.y2)) return;
-        
+
         elements.ctx.beginPath();
         elements.ctx.moveTo(edge.x1, edge.y1);
         elements.ctx.lineTo(edge.x2, edge.y2);
         elements.ctx.stroke();
         drawnEdges++;
     });
-    
+
     console.log(`Drew ${drawnEdges} edges out of ${state.graphData.length} total afds`);
 }
 
 function drawPath(scale) {
     elements.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
     elements.ctx.lineWidth = 3 / scale;
-    
+
     elements.ctx.beginPath();
     elements.ctx.moveTo(state.pathToDestination.path[0].x, state.pathToDestination.path[0].y);
-    
+
     for (let i = 1; i < state.pathToDestination.path.length; i++) {
         elements.ctx.lineTo(state.pathToDestination.path[i].x, state.pathToDestination.path[i].y);
     }
-    
+
     elements.ctx.stroke();
 }
 
 function drawPlaces(scale) {
     state.places.forEach(place => {
         if (place.name.startsWith('Location')) return;
-        
+
         // Draw point
         elements.ctx.beginPath();
         elements.ctx.arc(place.imageX, place.imageY, 5 / scale, 0, Math.PI * 2);
-        
+
         if (state.selectedPlace && state.selectedPlace.id === place.id) {
             elements.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
         } else {
             elements.ctx.fillStyle = 'rgba(0, 128, 255, 0.8)';
         }
-        
+
         elements.ctx.fill();
-        
+
         // Draw label
         elements.ctx.font = `${12 / scale}px Arial`;
         elements.ctx.fillStyle = 'black';
@@ -710,12 +639,12 @@ function drawUserLocation(scale) {
     );
     gradient.addColorStop(0, 'rgba(0, 255, 0, 0.8)');
     gradient.addColorStop(1, 'rgba(0, 255, 0, 0)');
-    
+
     elements.ctx.beginPath();
     elements.ctx.arc(state.userLocation.imageX, state.userLocation.imageY, glowRadius, 0, Math.PI * 2);
     elements.ctx.fillStyle = gradient;
     elements.ctx.fill();
-    
+
     // Draw position marker
     elements.ctx.beginPath();
     elements.ctx.arc(state.userLocation.imageX, state.userLocation.imageY, 8 / scale, 0, Math.PI * 2);
@@ -724,14 +653,14 @@ function drawUserLocation(scale) {
     elements.ctx.strokeStyle = 'black';
     elements.ctx.lineWidth = 2 / scale;
     elements.ctx.stroke();
-    
+
     // Draw accuracy circle
     elements.ctx.beginPath();
     elements.ctx.arc(state.userLocation.imageX, state.userLocation.imageY, 15 / scale, 0, Math.PI * 2);
     elements.ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)';
     elements.ctx.lineWidth = 1 / scale;
     elements.ctx.stroke();
-    
+
     // Draw "You are here" label
     elements.ctx.font = `bold ${14 / scale}px Arial`;
     elements.ctx.fillStyle = 'white';
@@ -741,7 +670,7 @@ function drawUserLocation(scale) {
     elements.ctx.strokeStyle = 'black';
     elements.ctx.strokeText("YOU ARE HERE", state.userLocation.imageX, state.userLocation.imageY - 15 / scale);
     elements.ctx.fillText("YOU ARE HERE", state.userLocation.imageX, state.userLocation.imageY - 15 / scale);
-    
+
     // Show coordinates on map if in debug mode
     if (state.debugMode) {
         elements.ctx.font = `${10 / scale}px monospace`;
@@ -749,8 +678,8 @@ function drawUserLocation(scale) {
         elements.ctx.textAlign = 'center';
         elements.ctx.textBaseline = 'top';
         elements.ctx.fillText(
-            `(${state.userLocation.latitude.toFixed(4)}, ${state.userLocation.longitude.toFixed(4)})`, 
-            state.userLocation.imageX, 
+            `(${state.userLocation.latitude.toFixed(4)}, ${state.userLocation.longitude.toFixed(4)})`,
+            state.userLocation.imageX,
             state.userLocation.imageY + 20 / scale
         );
     }
@@ -759,14 +688,14 @@ function drawUserLocation(scale) {
 function drawLocationSelection(scale, offsetX, offsetY) {
     const mouseX = state.lastMouseX || elements.canvas.width / 2;
     const mouseY = state.lastMouseY || elements.canvas.height / 2;
-    
+
     const imgX = (mouseX - offsetX) / scale;
     const imgY = (mouseY - offsetY) / scale;
-    
+
     if (imgX >= 0 && imgX <= state.mapImage.width && imgY >= 0 && imgY <= state.mapImage.height) {
         elements.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
         elements.ctx.lineWidth = 1 / scale;
-        
+
         // Draw crosshair
         elements.ctx.beginPath();
         elements.ctx.moveTo(imgX - 15 / scale, imgY);
@@ -774,31 +703,31 @@ function drawLocationSelection(scale, offsetX, offsetY) {
         elements.ctx.moveTo(imgX, imgY - 15 / scale);
         elements.ctx.lineTo(imgX, imgY + 15 / scale);
         elements.ctx.stroke();
-        
+
         // Draw circle
         elements.ctx.beginPath();
         elements.ctx.arc(imgX, imgY, 10 / scale, 0, Math.PI * 2);
         elements.ctx.stroke();
-        
+
         // Show coordinates
         const potentialGps = imageToGpsCoordinates(imgX, imgY);
         elements.ctx.font = `${10 / scale}px monospace`;
         elements.ctx.fillStyle = 'red';
         elements.ctx.textAlign = 'center';
         elements.ctx.textBaseline = 'top';
-        
+
         // Show GPS coordinates
         elements.ctx.fillText(
-            `GPS: (${potentialGps.latitude.toFixed(6)}, ${potentialGps.longitude.toFixed(6)})`, 
-            imgX, 
+            `GPS: (${potentialGps.latitude.toFixed(6)}, ${potentialGps.longitude.toFixed(6)})`,
+            imgX,
             imgY + 20 / scale
         );
-        
+
         // Show image coordinates if in debug mode
         if (state.debugMode) {
             elements.ctx.fillText(
-                `Image: (${imgX.toFixed(1)}, ${imgY.toFixed(1)})`, 
-                imgX, 
+                `Image: (${imgX.toFixed(1)}, ${imgY.toFixed(1)})`,
+                imgX,
                 imgY + 35 / scale
             );
         }
@@ -818,43 +747,47 @@ function getUserLocation() {
             state.locationWatchId = navigator.geolocation.watchPosition(
                 position => {
                     console.log('GPS location updated:', position.coords.latitude, position.coords.longitude);
-                    
+
                     const imgCoords = gpsToImageCoordinates(
                         position.coords.longitude,
                         position.coords.latitude
                     );
-                    
+
                     console.log('Converted to image coordinates:', imgCoords);
-                    
-                    const isInBounds = imgCoords.x > -2000 && imgCoords.x < 3000 && 
-                                     imgCoords.y > -2000 && imgCoords.y < 1000;
-                    
+
+                    const isInBounds = position.coords.longitude >= config.mapBounds.lonMin &&
+                        position.coords.longitude <= config.mapBounds.lonMax &&
+                        position.coords.latitude >= config.mapBounds.latMin &&
+                        position.coords.latitude <= config.mapBounds.latMax;
+
                     if (!isInBounds) {
-                        console.warn('GPS coordinates converted to out-of-bounds image coordinates');
+                        console.warn('GPS coordinates outside map bounds');
                         setDefaultLocation();
                         // Don't stop watching - keep monitoring for when user comes back in bounds
                     } else {
                         // If we were using default location and now have valid coordinates, update
-                        if (state.userLocation && state.userLocation.latitude === 37.3775) {
+                        if (state.userLocation &&
+                            state.userLocation.latitude === config.defaultLocation.latitude &&
+                            state.userLocation.longitude === config.defaultLocation.longitude) {
                             console.log('Valid location detected after being out of bounds');
                         }
-                        
+
                         state.userLocation = {
                             latitude: position.coords.latitude,
                             longitude: position.coords.longitude,
                             imageX: imgCoords.x,
                             imageY: imgCoords.y
                         };
-                        
+
                         elements.locationInfo.textContent = 'Your current location:';
                         updateCoordinatesDisplay(position.coords.latitude, position.coords.longitude);
                     }
-                    
+
                     // If we have a selected place, update the path
                     if (state.selectedPlace) {
                         findPath(state.userLocation, state.selectedPlace);
                     }
-                    
+
                     drawMap();
                 },
                 error => {
@@ -870,7 +803,7 @@ function getUserLocation() {
                     timeout: 5000
                 }
             );
-            
+
             // Resolve the promise immediately since we're now watching position
             resolve();
         } else {
@@ -891,29 +824,31 @@ function stopWatchingLocation() {
 
 function setDefaultLocation() {
     state.userLocation = {
-        latitude: 37.3775, 
-        longitude: -122.0745,
-        imageX: 1000,
-        imageY: 500
+        latitude: config.defaultLocation.latitude,
+        longitude: config.defaultLocation.longitude,
+        imageX: config.defaultLocation.imageX,
+        imageY: config.defaultLocation.imageY
     };
-    
+
     elements.locationInfo.textContent = 'Your location: [Default]';
     updateCoordinatesDisplay(state.userLocation.latitude, state.userLocation.longitude);
+
+    resetZoom();
     drawMap();
 }
 
 function updateCoordinatesDisplay(latitude, longitude) {
     const latDirection = latitude >= 0 ? 'N' : 'S';
     const lonDirection = longitude >= 0 ? 'E' : 'W';
-    
+
     const latFormatted = `${Math.abs(latitude).toFixed(6)}° ${latDirection}`;
     const lonFormatted = `${Math.abs(longitude).toFixed(6)}° ${lonDirection}`;
-    
+
     elements.coordinatesDisplay.innerHTML = `
         <div>Latitude: ${latFormatted}</div>
         <div>Longitude: ${lonFormatted}</div>
     `;
-    
+
     elements.copyButton.style.display = 'block';
 }
 
@@ -963,27 +898,27 @@ function imageToGpsCoordinates(x, y) {
 // ===== Debug Functions =====
 function updateDebugInfo() {
     if (!state.debugMode) return;
-    
+
     let html = '<h3>Debug Info</h3>';
-    
+
     if (state.userLocation) {
         html += '<p><strong>User Location:</strong><br>';
         html += `GPS: ${state.userLocation.latitude.toFixed(8)}° ${state.userLocation.latitude >= 0 ? 'N' : 'S'}, `;
         html += `${Math.abs(state.userLocation.longitude).toFixed(8)}° ${state.userLocation.longitude >= 0 ? 'E' : 'W'}<br>`;
         html += `Image: (${state.userLocation.imageX.toFixed(1)}, ${state.userLocation.imageY.toFixed(1)})</p>`;
     }
-    
+
     if (state.selectedPlace) {
         html += `<p><strong>Selected Place:</strong> ${state.selectedPlace.name}<br>`;
         html += `GPS: ${state.selectedPlace.latitude.toFixed(8)}° ${state.selectedPlace.latitude >= 0 ? 'N' : 'S'}, `;
         html += `${Math.abs(state.selectedPlace.longitude).toFixed(8)}° ${state.selectedPlace.longitude >= 0 ? 'E' : 'W'}<br>`;
         html += `Image: (${state.selectedPlace.imageX.toFixed(1)}, ${state.selectedPlace.imageY.toFixed(1)})</p>`;
     }
-    
+
     html += `<p><strong>Map Data:</strong><br>`;
     html += `Graph: ${state.graphData.length} edges<br>`;
     html += `Places: ${state.places.length} locations</p>`;
-    
+
     elements.debugInfo.innerHTML = html;
 }
 
@@ -996,15 +931,18 @@ function setupEventListeners() {
         elements.toggleControlsBtn.textContent = state.isControlsVisible ? 'Hide Controls' : 'Show Controls';
     });
 
+    // Reset view button
+    document.getElementById('reset-view-btn').addEventListener('click', resetZoom);
+
     // Search button click
     elements.searchButton.addEventListener('click', () => {
         const searchTerm = elements.searchInput.value.trim().toLowerCase();
         if (!searchTerm) return;
-        
-        const matches = state.places.filter(place => 
+
+        const matches = state.places.filter(place =>
             place.name.toLowerCase().includes(searchTerm)
         );
-        
+
         if (matches.length > 0) {
             selectPlace(matches[0]);
             elements.searchInput.value = '';
@@ -1012,23 +950,23 @@ function setupEventListeners() {
             alert('No matching places found');
         }
     });
-    
+
     // Search input enter key
     elements.searchInput.addEventListener('keydown', event => {
         if (event.key === 'Enter') {
             elements.searchButton.click();
         }
     });
-    
+
     // Copy coordinates button
     elements.copyButton.addEventListener('click', () => {
         if (!state.userLocation) return;
-        
+
         const latDirection = state.userLocation.latitude >= 0 ? 'N' : 'S';
         const lonDirection = state.userLocation.longitude >= 0 ? 'E' : 'W';
-        
+
         const coordsText = `${Math.abs(state.userLocation.latitude).toFixed(6)}° ${latDirection}, ${Math.abs(state.userLocation.longitude).toFixed(6)}° ${lonDirection}`;
-        
+
         navigator.clipboard.writeText(coordsText).then(() => {
             elements.copyStatus.style.display = 'block';
             setTimeout(() => {
@@ -1039,7 +977,7 @@ function setupEventListeners() {
             alert('Could not copy coordinates to clipboard');
         });
     });
-    
+
     // Manual location button
     elements.manualLocationButton.addEventListener('click', () => {
         stopWatchingLocation();
@@ -1048,7 +986,7 @@ function setupEventListeners() {
         elements.canvas.style.cursor = 'crosshair';
         elements.locationInfo.textContent = 'Click anywhere on the map to set your location';
     });
-    
+
     // Keyboard shortcuts
     document.addEventListener('keydown', event => {
         if (event.key.toLowerCase() === 'l' && event.ctrlKey && event.shiftKey) {
@@ -1060,87 +998,102 @@ function setupEventListeners() {
             toggleLocationSelectMode();
         }
     });
-    
+
     // Map clicks for location selection
     elements.canvas.addEventListener('click', event => {
         if (!state.isLocationSelectMode) return;
-        
-        const scale = Math.min(
-            elements.canvas.width / state.mapImage.width,
-            elements.canvas.height / state.mapImage.height
-        ) * 0.9;
-        
-        const offsetX = (elements.canvas.width - state.mapImage.width * scale) / 2;
-        const offsetY = (elements.canvas.height - state.mapImage.height * scale) / 2;
-        
-        const imageX = (event.clientX - offsetX) / scale;
-        const imageY = (event.clientY - offsetY) / scale;
-        
+
+        // Get the canvas rect to account for any canvas positioning
+        const rect = elements.canvas.getBoundingClientRect();
+
+        // Calculate mouse position relative to canvas
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        // Use current zoom level
+        const scale = state.zoomLevel;
+        const offsetX = state.zoomCenter.x;
+        const offsetY = state.zoomCenter.y;
+
+        // Calculate image coordinates using current zoom
+        const imageX = (mouseX - offsetX) / scale;
+        const imageY = (mouseY - offsetY) / scale;
+
         if (imageX >= 0 && imageX <= state.mapImage.width && imageY >= 0 && imageY <= state.mapImage.height) {
             const gps = imageToGpsCoordinates(imageX, imageY);
-            
+
             console.log('Manual location set:', gps);
-            
+            console.log('Mouse position:', mouseX, mouseY);
+            console.log('Image coordinates:', imageX, imageY);
+            console.log('Scale:', scale);
+            console.log('Offset:', offsetX, offsetY);
+
             state.userLocation = {
                 latitude: gps.latitude,
                 longitude: gps.longitude,
                 imageX: imageX,
                 imageY: imageY
             };
-            
+
             elements.locationInfo.textContent = 'Your selected location:';
             updateCoordinatesDisplay(gps.latitude, gps.longitude);
-            
-            if (state.selectedPlace) {
-                findPath(state.userLocation, state.selectedPlace);
-            }
-            
+
+            // Exit location select mode first
             state.isLocationSelectMode = false;
             elements.locationSelectMode.style.display = 'none';
             elements.canvas.style.cursor = 'default';
-            
+
+            // Then update path and zoom if there's a selected place
+            if (state.selectedPlace) {
+                findPath(state.userLocation, state.selectedPlace);
+            } else {
+                // If no place is selected, just zoom to the user location
+                const baseScale = Math.min(
+                    elements.canvas.width / state.mapImage.width,
+                    elements.canvas.height / state.mapImage.height
+                ) * 0.9;
+
+                const targetScale = baseScale * 1.5; // Zoom in a bit more than base scale
+                const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
+                const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+
+                // Adjust offsets to center on the user location
+                const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
+                const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
+
+                // Start zoom animation and force an immediate draw
+                startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
+                requestAnimationFrame(() => drawMap());
+            }
+
             if (state.debugMode) {
                 updateDebugInfo();
             }
-            
-            drawMap();
         }
     });
-    
+
     // Window resize
     window.addEventListener('resize', () => {
         resizeCanvas();
         drawMap();
     });
-    
+
     // Mouse move for crosshair
     elements.canvas.addEventListener('mousemove', event => {
         state.lastMouseX = event.clientX;
         state.lastMouseY = event.clientY;
-        
+
         if (state.isLocationSelectMode) {
             drawMap();
         }
     });
-    
-    // Add touch event handling for mobile
-    elements.canvas.addEventListener('touchstart', handleTouchStart, false);
-    elements.canvas.addEventListener('touchmove', handleTouchMove, false);
-    elements.canvas.addEventListener('touchend', handleTouchEnd, false);
-    
-    // Prevent default touch behavior to avoid scrolling while interacting with map
-    elements.canvas.addEventListener('touchmove', function(e) {
-        if (state.isLocationSelectMode) {
-            e.preventDefault();
-        }
-    }, { passive: false });
 }
 
 // ===== Helper Functions =====
 function toggleLocationSelectMode() {
     state.isLocationSelectMode = !state.isLocationSelectMode;
     elements.locationSelectMode.style.display = state.isLocationSelectMode ? 'block' : 'none';
-    
+
     if (state.isLocationSelectMode) {
         elements.canvas.style.cursor = 'crosshair';
         elements.locationInfo.textContent = 'LOCATION SELECT MODE: Click anywhere on the map';
@@ -1158,7 +1111,7 @@ function toggleLocationSelectMode() {
 function toggleDebugMode() {
     state.debugMode = !state.debugMode;
     elements.debugInfo.style.display = state.debugMode ? 'block' : 'none';
-    
+
     if (state.debugMode) {
         updateDebugInfo();
     }
@@ -1193,18 +1146,18 @@ function testCoordinateConversion() {
         latitude: 37.359344,
         longitude: -122.066030
     };
-    
+
     console.log('Testing specific GPS coordinate:');
     console.log(`Input GPS: (${testGps.latitude}, ${testGps.longitude})`);
-    
+
     // Convert GPS to image coordinates
     const imageCoords = gpsToImageCoordinates(testGps.longitude, testGps.latitude);
     console.log(`Converted to image: (${imageCoords.x.toFixed(3)}, ${imageCoords.y.toFixed(3)})`);
-    
+
     // Convert back to GPS
     const backToGps = imageToGpsCoordinates(imageCoords.x, imageCoords.y);
     console.log(`Converted back to GPS: (${backToGps.latitude.toFixed(6)}, ${backToGps.longitude.toFixed(6)})`);
-    
+
     // Calculate differences
     const latDiff = Math.abs(testGps.latitude - backToGps.latitude);
     const lonDiff = Math.abs(testGps.longitude - backToGps.longitude);
@@ -1215,14 +1168,14 @@ function testCoordinateConversion() {
     testPoints.forEach((point, index) => {
         // Convert image coordinates to GPS
         const gps = imageToGpsCoordinates(point.x, point.y);
-        
+
         // Convert GPS back to image coordinates
         const imageCoords = gpsToImageCoordinates(gps.longitude, gps.latitude);
-        
+
         // Calculate the difference
         const xDiff = Math.abs(point.x - imageCoords.x);
         const yDiff = Math.abs(point.y - imageCoords.y);
-        
+
         console.log(`Test point ${index + 1}:`);
         console.log(`Original image coordinates: (${point.x}, ${point.y})`);
         console.log(`GPS coordinates: (${gps.latitude.toFixed(6)}, ${gps.longitude.toFixed(6)})`);
@@ -1238,33 +1191,38 @@ init();
 
 // Add a function to reset zoom
 function resetZoom() {
-    if (!state.animation.isAnimating) {
+    if (state.userLocation) {
         // Clear the path and selection first
         state.pathToDestination = null;
         state.selectedPlace = null;
         elements.locationInfo.textContent = 'Your location:';
         updatePlacesList();
-        
-        // Then start reset animation
-        startZoomAnimation(1, 0, 0, true);
+
+        // Force an immediate redraw to clear the path
+        drawMap();
+
+        // Calculate new zoom level centered on user location
+        const baseScale = Math.min(
+            elements.canvas.width / state.mapImage.width,
+            elements.canvas.height / state.mapImage.height
+        ) * config.zoom.base;
+
+        const targetScale = baseScale * config.zoom.singlePoint;
+        const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
+        const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+
+        // Adjust offsets to center on the user location
+        const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
+        const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
+
+        // Reset animation state
+        state.animation.isAnimating = false;
+        state.animation.isResetting = false;
+
+        // Start zoom animation
+        startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
     }
 }
-
-// Add a button to reset zoom
-const resetZoomButton = document.createElement('button');
-resetZoomButton.textContent = 'Reset View';
-resetZoomButton.style.cssText = `
-    background: #2196F3;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 10px;
-    width: 100%;
-`;
-resetZoomButton.addEventListener('click', resetZoom);
-elements.controls.appendChild(resetZoomButton);
 
 // Add animation functions
 function easeOutExpo(t) {
@@ -1281,25 +1239,25 @@ function startZoomAnimation(targetScale, targetOffsetX, targetOffsetY, isResetti
     state.animation.startOffsetY = state.zoomCenter.y;
     state.animation.targetOffsetX = targetOffsetX;
     state.animation.targetOffsetY = targetOffsetY;
-    
+
     requestAnimationFrame(animateZoom);
 }
 
 function animateZoom(currentTime) {
     if (!state.animation.isAnimating) return;
-    
+
     const elapsed = currentTime - state.animation.startTime;
     const progress = Math.min(elapsed / state.animation.duration, 1);
     const easedProgress = easeOutExpo(progress);
-    
+
     // Update current zoom and offset
     state.zoomLevel = state.animation.startScale + (state.animation.targetScale - state.animation.startScale) * easedProgress;
     state.zoomCenter.x = state.animation.startOffsetX + (state.animation.targetOffsetX - state.animation.startOffsetX) * easedProgress;
     state.zoomCenter.y = state.animation.startOffsetY + (state.animation.targetOffsetY - state.animation.startOffsetY) * easedProgress;
-    
+
     // Redraw the map with current animation values
     drawMap();
-    
+
     if (progress < 1) {
         requestAnimationFrame(animateZoom);
     } else {
@@ -1313,210 +1271,4 @@ function animateZoom(currentTime) {
             state.animation.isResetting = false;
         }
     }
-}
-
-// Add touch event handlers
-let touchStartX = 0;
-let touchStartY = 0;
-
-function handleTouchStart(e) {
-    if (state.isLocationSelectMode) {
-        const touch = e.touches[0];
-        touchStartX = touch.clientX;
-        touchStartY = touch.clientY;
-    }
-}
-
-function handleTouchMove(e) {
-    if (state.isLocationSelectMode) {
-        const touch = e.touches[0];
-        state.lastMouseX = touch.clientX;
-        state.lastMouseY = touch.clientY;
-        drawMap();
-    }
-}
-
-function handleTouchEnd(e) {
-    if (state.isLocationSelectMode) {
-        const touch = e.changedTouches[0];
-        const touchEndX = touch.clientX;
-        const touchEndY = touch.clientY;
-        
-        // Only trigger click if touch didn't move much (to distinguish from scroll)
-        if (Math.abs(touchEndX - touchStartX) < 10 && Math.abs(touchEndY - touchStartY) < 10) {
-            const scale = Math.min(
-                elements.canvas.width / state.mapImage.width,
-                elements.canvas.height / state.mapImage.height
-            ) * 0.95;
-            
-            const offsetX = (elements.canvas.width - state.mapImage.width * scale) / 2;
-            const offsetY = (elements.canvas.height - state.mapImage.height * scale) / 2;
-            
-            const imageX = (touchEndX - offsetX) / scale;
-            const imageY = (touchEndY - offsetY) / scale;
-            
-            if (imageX >= 0 && imageX <= state.mapImage.width && imageY >= 0 && imageY <= state.mapImage.height) {
-                const gps = imageToGpsCoordinates(imageX, imageY);
-                
-                state.userLocation = {
-                    latitude: gps.latitude,
-                    longitude: gps.longitude,
-                    imageX: imageX,
-                    imageY: imageY
-                };
-                
-                elements.locationInfo.textContent = 'Your selected location:';
-                updateCoordinatesDisplay(gps.latitude, gps.longitude);
-                
-                if (state.selectedPlace) {
-                    findPath(state.userLocation, state.selectedPlace);
-                }
-                
-                state.isLocationSelectMode = false;
-                elements.locationSelectMode.style.display = 'none';
-                elements.canvas.style.cursor = 'default';
-                
-                if (state.debugMode) {
-                    updateDebugInfo();
-                }
-                
-                drawMap();
-            }
-        }
-    }
-}
-
-// Create UI elements
-function createUIElements() {
-    // Create controls panel
-    const controlsPanel = document.createElement('div');
-    controlsPanel.className = 'controls-panel';
-    
-    // Create search container
-    const searchContainer = document.createElement('div');
-    searchContainer.className = 'search-container';
-    
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.id = 'search-input';
-    searchInput.placeholder = 'Search places...';
-    
-    const searchButton = document.createElement('button');
-    searchButton.id = 'search-button';
-    searchButton.textContent = 'Search';
-    
-    searchContainer.appendChild(searchInput);
-    searchContainer.appendChild(searchButton);
-    
-    // Create places list
-    const placesList = document.createElement('div');
-    placesList.className = 'places-list';
-    
-    // Create location info
-    const locationInfo = document.createElement('div');
-    locationInfo.className = 'location-info';
-    locationInfo.textContent = 'Location: Not set';
-    
-    // Create coordinates display
-    const coordinatesDisplay = document.createElement('div');
-    coordinatesDisplay.className = 'coordinates-display';
-    coordinatesDisplay.textContent = 'Coordinates: Not set';
-    
-    // Create button group
-    const buttonGroup = document.createElement('div');
-    buttonGroup.className = 'button-group';
-    
-    const copyButton = document.createElement('button');
-    copyButton.id = 'copy-coords-btn';
-    copyButton.className = 'action-button';
-    copyButton.textContent = 'Copy Coordinates';
-    
-    const manualLocationBtn = document.createElement('button');
-    manualLocationBtn.id = 'manual-location-btn';
-    manualLocationBtn.className = 'action-button';
-    manualLocationBtn.textContent = 'Set Location Manually';
-    
-    const resetButton = document.createElement('button');
-    resetButton.id = 'reset-zoom-btn';
-    resetButton.className = 'action-button';
-    resetButton.textContent = 'Reset View';
-    
-    buttonGroup.appendChild(copyButton);
-    buttonGroup.appendChild(manualLocationBtn);
-    buttonGroup.appendChild(resetButton);
-    
-    // Create copy status
-    const copyStatus = document.createElement('div');
-    copyStatus.className = 'copy-status';
-    
-    // Create location select mode indicator
-    const locationSelectMode = document.createElement('div');
-    locationSelectMode.className = 'location-select-mode';
-    locationSelectMode.textContent = 'Click on map to set location';
-    
-    // Create toggle controls button
-    const toggleControlsBtn = document.createElement('button');
-    toggleControlsBtn.className = 'toggle-controls-btn';
-    toggleControlsBtn.textContent = 'Toggle Controls';
-    
-    // Create loading indicator
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.className = 'loading-indicator';
-    loadingIndicator.textContent = 'Loading...';
-    
-    // Create debug info
-    const debugInfo = document.createElement('div');
-    debugInfo.className = 'debug-info';
-    
-    // Assemble controls panel
-    controlsPanel.appendChild(searchContainer);
-    controlsPanel.appendChild(placesList);
-    controlsPanel.appendChild(locationInfo);
-    controlsPanel.appendChild(coordinatesDisplay);
-    controlsPanel.appendChild(buttonGroup);
-    controlsPanel.appendChild(copyStatus);
-    
-    // Add elements to document
-    document.body.appendChild(controlsPanel);
-    document.body.appendChild(locationSelectMode);
-    document.body.appendChild(toggleControlsBtn);
-    document.body.appendChild(loadingIndicator);
-    document.body.appendChild(debugInfo);
-    
-    // Initialize elements object
-    elements = {
-        canvas: document.getElementById('canvas'),
-        controls: controlsPanel,
-        searchInput: searchInput,
-        searchButton: searchButton,
-        placesList: placesList,
-        locationInfo: locationInfo,
-        coordinatesDisplay: coordinatesDisplay,
-        copyButton: copyButton,
-        copyStatus: copyStatus,
-        manualLocationBtn: manualLocationBtn,
-        locationSelectMode: locationSelectMode,
-        toggleControlsBtn: toggleControlsBtn,
-        resetButton: resetButton,
-        loadingIndicator: loadingIndicator,
-        debugInfo: debugInfo
-    };
-    
-    // Add event listeners
-    elements.searchButton.addEventListener('click', handleSearch);
-    elements.searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleSearch();
-    });
-    elements.copyButton.addEventListener('click', copyCoordinates);
-    elements.manualLocationBtn.addEventListener('click', toggleLocationSelectMode);
-    elements.toggleControlsBtn.addEventListener('click', toggleControls);
-    elements.resetButton.addEventListener('click', resetZoom);
-    elements.canvas.addEventListener('click', handleCanvasClick);
-    elements.canvas.addEventListener('mousemove', handleCanvasMouseMove);
-    elements.canvas.addEventListener('touchstart', handleTouchStart);
-    elements.canvas.addEventListener('touchmove', handleTouchMove);
-    elements.canvas.addEventListener('touchend', handleTouchEnd);
-    
-    // Initialize controls visibility
-    elements.controls.classList.add('visible');
 } 

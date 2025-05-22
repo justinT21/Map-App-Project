@@ -35,6 +35,7 @@ const state = {
     locationWatchId: null,
     zoomLevel: 1,
     zoomCenter: { x: 0, y: 0 },
+    calculatedPaths: {}, // Store calculated paths
     animation: {
         isAnimating: false,
         isResetting: false,
@@ -335,8 +336,16 @@ function selectPlace(place) {
     updatePlacesList();
 
     if (state.userLocation) {
-        console.log(place)
-        findPath(state.userLocation, place);
+        const cacheKey = `${state.userLocation.latitude},${state.userLocation.longitude}-${place.latitude},${place.longitude}`;
+
+        if (state.calculatedPaths[cacheKey]) {
+            console.log('Path found in cache.');
+            state.pathToDestination = state.calculatedPaths[cacheKey];
+            drawMap();
+        } else {
+            console.log('Calculating new path.');
+            findPath(state.userLocation, place);
+        }
     }
 
     elements.locationInfo.textContent = `Selected: ${place.name}`;
@@ -345,10 +354,13 @@ function selectPlace(place) {
 
 // ===== Path Finding =====
 function findPath(start, end) {
+    const cacheKey = `${start.latitude},${start.longitude}-${end.latitude},${end.longitude}`;
+
     if (!state.pathFinder) {
         console.error('PathFinder not initialized');
         return;
     }
+    
 
     // Find closest graph nodes to start and end points
     const startNode = findClosestGraphNode(start.imageX, start.imageY);
@@ -379,6 +391,8 @@ function findPath(start, end) {
             end: end,
             path: fullPath
         };
+
+        state.calculatedPaths[cacheKey] = state.pathToDestination;
 
         // Get bounds of the path
         const bounds = state.pathFinder.getPathBounds(
@@ -422,8 +436,8 @@ function findPath(start, end) {
         const targetOffsetY = (elements.canvas.height - state.mapImage.height / 2) * targetScale;
 
         // Adjust offsets to center on the weighted center point
-        const finalOffsetX = targetOffsetX - (centerX - state.mapImage.width / 2) * targetScale;
-        const finalOffsetY = targetOffsetY - (centerY - state.mapImage.height / 2) * targetScale;
+        const finalOffsetX = targetOffsetX - centerX * targetScale;
+        const finalOffsetY = targetOffsetY - centerY * targetScale;
 
         console.log('targetScale:', targetScale);
         console.log('finalOffsetX:', finalOffsetX);
@@ -641,7 +655,7 @@ function drawGraphEdges(scale) {
 }
 
 function drawPath(scale) {
-    elements.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+    elements.ctx.strokeStyle = 'rgba(0, 0, 255, 0.8)';
     elements.ctx.lineWidth = 3 / scale;
 
     elements.ctx.beginPath();
@@ -1317,15 +1331,13 @@ function setupEventListeners() {
 
     // Add click and touch events for zoom in
     zoomIn.addEventListener('click', () => handleZoom(true));
-    zoomIn.addEventListener('touchend', (e) => {
-        e.preventDefault();
+    zoomIn.addEventListener('touchend', () => {
         handleZoom(true);
     });
 
     // Add click and touch events for zoom out
     zoomOut.addEventListener('click', () => handleZoom(false));
-    zoomOut.addEventListener('touchend', (e) => {
-        e.preventDefault();
+    zoomOut.addEventListener('touchend', () => {
         handleZoom(false);
     });
 }

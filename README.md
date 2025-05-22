@@ -16,20 +16,19 @@ All executables get put into ./bin
 To avoid CORS issues when loading the map application, run a local server:
 
 ```
-cd www && python -m http.server 8000
+python -m http.server 8000
 ```
 
-Then open your browser and navigate to `http://localhost:8000`
+Then open your browser and navigate to `http://localhost:8000/www`
 
 ## School Map Navigation Application
 
 A new interactive map navigation application is now available. To use it:
 
-1. Navigate to `http://localhost:8000/school-map.html`
+1. Navigate to `http://localhost:8000/www/`
 2. The application will load the SchoolMap.png image and overlay data from data.csv
 3. Features:
    - Visualizes all paths from data.csv on the map
-   - Detects your current location and shows "You are here" marker
    - Press Ctrl+Shift+L to enter location selection mode and click anywhere on map
    - Search for locations using the search bar
    - Click on any location in the places list to select it and show a path

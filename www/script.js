@@ -87,7 +87,7 @@ const config = {
         singlePoint: 1.2,  // Zoom level when focusing on a single point
         base: 0.9,        // Base zoom level multiplier for fitting map to window
         minPathScale: 0.3, // Minimum scale factor for path view (prevents zooming out too far)
-        buttonStep: 0.6,   // How much to zoom in/out per button click
+        buttonStep: 0.3,   // How much to zoom in/out per button click
         wheelStep: 0.6,    // Step for mouse wheel zooming
         max: 3.0,         // Maximum zoom level
         min: 0.3          // Minimum zoom level
@@ -1081,21 +1081,25 @@ function setupEventListeners() {
                 ) * config.zoom.base;
 
                 const targetScale = baseScale * config.zoom.singlePoint;
-                const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
-                const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+                
+                // Calculate new offsets to center on the user location
+                const centerX = elements.canvas.width / 2;
+                const centerY = elements.canvas.height / 2;
+                const newOffsetX = centerX - imageX * targetScale;
+                const newOffsetY = centerY - imageY * targetScale;
 
-                // Adjust offsets to center on the user location
-                const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
-                const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
+                // Save original duration
+                const originalDuration = state.animation.duration;
+                // Set animation duration for location change
+                state.animation.duration = 200; // 500ms for smooth movement
 
-                // Update zoom center to match new location
-                state.zoomCenter.x = finalOffsetX;
-                state.zoomCenter.y = finalOffsetY;
-                state.zoomLevel = targetScale;
+                // Start zoom animation with the new values
+                startZoomAnimation(targetScale, newOffsetX, newOffsetY, false);
 
-                // Start zoom animation and force an immediate draw
-                startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
-                requestAnimationFrame(() => drawMap());
+                // Restore original duration after animation starts
+                setTimeout(() => {
+                    state.animation.duration = originalDuration;
+                }, 0);
             }
 
             if (state.debugMode) {
@@ -1126,7 +1130,7 @@ function setupEventListeners() {
 
         // Get the actual delta value for smoother control
         const delta = -event.deltaY * 0.001; // Scale down the delta for finer control
-
+        
         // Use a smooth exponential function for the zoom factor
         const zoomFactor = Math.exp(delta * config.zoom.wheelStep);
 
@@ -1143,6 +1147,75 @@ function setupEventListeners() {
             state.zoomLevel = clampedScale;
             state.zoomCenter.x = newOffsetX;
             state.zoomCenter.y = newOffsetY;
+            drawMap();
+        }
+    });
+
+    // Touch zoom support
+    let initialDistance = 0;
+    let initialScale = 1;
+
+    elements.canvas.addEventListener('touchstart', (event) => {
+        if (event.touches.length === 2) {
+            event.preventDefault();
+            initialDistance = Math.hypot(
+                event.touches[0].clientX - event.touches[1].clientX,
+                event.touches[0].clientY - event.touches[1].clientY
+            );
+            initialScale = state.zoomLevel;
+        }
+    });
+
+    elements.canvas.addEventListener('touchmove', (event) => {
+        if (event.touches.length === 2) {
+            event.preventDefault();
+            
+            const currentDistance = Math.hypot(
+                event.touches[0].clientX - event.touches[1].clientX,
+                event.touches[0].clientY - event.touches[1].clientY
+            );
+
+            const scale = initialScale * (currentDistance / initialDistance);
+            const clampedScale = Math.min(Math.max(scale, config.zoom.min), config.zoom.max);
+
+            if (clampedScale !== state.zoomLevel) {
+                // Calculate new offset to keep user location centered
+                const scaleChange = clampedScale / state.zoomLevel;
+                const newOffsetX = state.zoomCenter.x - (state.userLocation.imageX - state.zoomCenter.x) * (scaleChange - 1);
+                const newOffsetY = state.zoomCenter.y - (state.userLocation.imageY - state.zoomCenter.y) * (scaleChange - 1);
+
+                // Apply changes immediately without animation
+                state.zoomLevel = clampedScale;
+                state.zoomCenter.x = newOffsetX;
+                state.zoomCenter.y = newOffsetY;
+                drawMap();
+            }
+        }
+    });
+
+    // Touch drag support
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+
+    elements.canvas.addEventListener('touchstart', (event) => {
+        if (event.touches.length === 1) {
+            touchStartX = event.touches[0].clientX;
+            touchStartY = event.touches[0].clientY;
+            lastTouchX = state.zoomCenter.x;
+            lastTouchY = state.zoomCenter.y;
+        }
+    });
+
+    elements.canvas.addEventListener('touchmove', (event) => {
+        if (event.touches.length === 1) {
+            event.preventDefault();
+            const dx = event.touches[0].clientX - touchStartX;
+            const dy = event.touches[0].clientY - touchStartY;
+
+            state.zoomCenter.x = lastTouchX + dx;
+            state.zoomCenter.y = lastTouchY + dy;
             drawMap();
         }
     });
@@ -1184,42 +1257,51 @@ function setupEventListeners() {
     });
 
     // Zoom controls
-    document.getElementById('zoom-in').addEventListener('click', () => {
-        const zoomFactor = 1 + config.zoom.buttonStep;
+    const zoomIn = document.getElementById('zoom-in');
+    const zoomOut = document.getElementById('zoom-out');
+
+    // Function to handle zoom
+    function handleZoom(isZoomIn) {
+        const zoomFactor = isZoomIn ? (1 + config.zoom.buttonStep) : (1 / (1 + config.zoom.buttonStep));
         const newScale = state.zoomLevel * zoomFactor;
-        const clampedScale = Math.min(newScale, config.zoom.max);
+        const clampedScale = isZoomIn ? 
+            Math.min(newScale, config.zoom.max) : 
+            Math.max(newScale, config.zoom.min);
 
         if (clampedScale !== state.zoomLevel) {
-            // Calculate new offset to keep user location centered
+            // Calculate the center of the screen in image coordinates
+            const centerX = elements.canvas.width / 2;
+            const centerY = elements.canvas.height / 2;
+            
+            // Convert screen center to image coordinates
+            const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
+            const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
+            
+            // Calculate new offsets to keep the center point fixed
             const scaleChange = clampedScale / state.zoomLevel;
-            const newOffsetX = state.zoomCenter.x - (state.userLocation.imageX - state.zoomCenter.x) * (scaleChange - 1);
-            const newOffsetY = state.zoomCenter.y - (state.userLocation.imageY - state.zoomCenter.y) * (scaleChange - 1);
+            const newOffsetX = centerX - imageCenterX * clampedScale;
+            const newOffsetY = centerY - imageCenterY * clampedScale;
 
-            // Use a short animation for smooth zoom
-            const originalDuration = state.animation.duration;
-            state.animation.duration = 50;
-            startZoomAnimation(clampedScale, newOffsetX, newOffsetY, false);
-            state.animation.duration = originalDuration;
+            // Apply changes immediately without animation
+            state.zoomLevel = clampedScale;
+            state.zoomCenter.x = newOffsetX;
+            state.zoomCenter.y = newOffsetY;
+            drawMap();
         }
+    }
+
+    // Add click and touch events for zoom in
+    zoomIn.addEventListener('click', () => handleZoom(true));
+    zoomIn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        handleZoom(true);
     });
 
-    document.getElementById('zoom-out').addEventListener('click', () => {
-        const zoomFactor = 1 / (1 + config.zoom.buttonStep);
-        const newScale = state.zoomLevel * zoomFactor;
-        const clampedScale = Math.max(newScale, config.zoom.min);
-
-        if (clampedScale !== state.zoomLevel) {
-            // Calculate new offset to keep user location centered
-            const scaleChange = clampedScale / state.zoomLevel;
-            const newOffsetX = state.zoomCenter.x - (state.userLocation.imageX - state.zoomCenter.x) * (scaleChange - 1);
-            const newOffsetY = state.zoomCenter.y - (state.userLocation.imageY - state.zoomCenter.y) * (scaleChange - 1);
-
-            // Use a short animation for smooth zoom
-            const originalDuration = state.animation.duration;
-            state.animation.duration = 50;
-            startZoomAnimation(clampedScale, newOffsetX, newOffsetY, false);
-            state.animation.duration = originalDuration;
-        }
+    // Add click and touch events for zoom out
+    zoomOut.addEventListener('click', () => handleZoom(false));
+    zoomOut.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        handleZoom(false);
     });
 }
 

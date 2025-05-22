@@ -90,7 +90,8 @@ const config = {
         buttonStep: 0.3,   // How much to zoom in/out per button click
         wheelStep: 0.6,    // Step for mouse wheel zooming
         max: 3.0,         // Maximum zoom level
-        min: 0.3          // Minimum zoom level
+        min: 0.3,         // Minimum zoom level
+        mobileMultiplier: 2.0  // Additional zoom multiplier for mobile devices
     },
 
     // Path and view settings
@@ -100,6 +101,15 @@ const config = {
     }
 };
 
+// Add mobile detection
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+// Adjust zoom levels for mobile
+if (isMobile) {
+    config.zoom.singlePoint *= config.zoom.mobileMultiplier;
+    config.zoom.base *= config.zoom.mobileMultiplier;
+    config.zoom.max *= config.zoom.mobileMultiplier;
+}
 
 // ===== Initialization =====
 async function init() {
@@ -119,6 +129,9 @@ async function init() {
         state.pathFinder = new PathFinder(state.graphData);
         initializePlaces();
         drawMap();
+
+        // Set up mobile-friendly controls
+        setupMobileControls();
 
         // Prompt for location at startup
         await promptForLocation();
@@ -1139,17 +1152,16 @@ function setupEventListeners() {
 
         if (clampedScale !== state.zoomLevel) {
             // Calculate the center of the screen in image coordinates
-            const centerX = elements.canvas.width / 2;
-            const centerY = elements.canvas.height / 2;
+            const centerX = Math.round(elements.canvas.width / 2);
+            const centerY = Math.round(elements.canvas.height / 2);
             
-            // Convert screen center to image coordinates
+            // Convert screen center to image coordinates with higher precision
             const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
             const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
             
             // Calculate new offsets to keep the center point fixed
-            const scaleChange = clampedScale / state.zoomLevel;
-            const newOffsetX = centerX - imageCenterX * clampedScale;
-            const newOffsetY = centerY - imageCenterY * clampedScale;
+            const newOffsetX = Math.round(centerX - imageCenterX * clampedScale);
+            const newOffsetY = Math.round(centerY - imageCenterY * clampedScale);
 
             // Apply changes immediately without animation
             state.zoomLevel = clampedScale;
@@ -1188,16 +1200,16 @@ function setupEventListeners() {
 
             if (clampedScale !== state.zoomLevel) {
                 // Keep the current center point exactly the same
-                const centerX = elements.canvas.width / 2;
-                const centerY = elements.canvas.height / 2;
+                const centerX = Math.round(elements.canvas.width / 2);
+                const centerY = Math.round(elements.canvas.height / 2);
                 
-                // Calculate the current center point in image coordinates
+                // Calculate the current center point in image coordinates with higher precision
                 const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
                 const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
                 
                 // Calculate new offsets to maintain the exact same center point
-                const newOffsetX = centerX - imageCenterX * clampedScale;
-                const newOffsetY = centerY - imageCenterY * clampedScale;
+                const newOffsetX = Math.round(centerX - imageCenterX * clampedScale);
+                const newOffsetY = Math.round(centerY - imageCenterY * clampedScale);
 
                 // Apply changes immediately without animation
                 state.zoomLevel = clampedScale;
@@ -1285,17 +1297,17 @@ function setupEventListeners() {
 
         if (clampedScale !== state.zoomLevel) {
             // Calculate the center of the screen in image coordinates
-            const centerX = elements.canvas.width / 2;
-            const centerY = elements.canvas.height / 2;
+            const centerX = Math.round(elements.canvas.width / 2);
+            const centerY = Math.round(elements.canvas.height / 2);
             
-            // Convert screen center to image coordinates
+            // Convert screen center to image coordinates with higher precision
             const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
             const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
             
             // Calculate new offsets to keep the center point fixed
             const scaleChange = clampedScale / state.zoomLevel;
-            const newOffsetX = centerX - imageCenterX * clampedScale;
-            const newOffsetY = centerY - imageCenterY * clampedScale;
+            const newOffsetX = Math.round(centerX - imageCenterX * clampedScale);
+            const newOffsetY = Math.round(centerY - imageCenterY * clampedScale);
 
             // Apply changes immediately without animation
             state.zoomLevel = clampedScale;
@@ -1501,5 +1513,15 @@ function animateZoom(currentTime) {
             updatePlacesList();
             state.animation.isResetting = false;
         }
+    }
+}
+
+// Add mobile-friendly controls setup
+function setupMobileControls() {
+    // Make controls visible by default on mobile
+    if (isMobile) {
+        state.isControlsVisible = true;
+        elements.controls.style.display = 'block';
+        elements.toggleControlsBtn.textContent = 'Hide Controls';
     }
 } 

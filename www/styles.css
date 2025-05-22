@@ -180,87 +180,73 @@ body {
 
 /* Mobile Styles */
 @media (max-width: 768px) {
-    .controls-panel {
+    #controls {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
-        top: auto;
-        width: 100%;
-        border-radius: 20px 20px 0 0;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 10px;
+        z-index: 1000;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
         max-height: 50vh;
         overflow-y: auto;
-        transform: translateY(100%);
-        transition: transform 0.3s ease;
-        z-index: 1000;
-        background: white;
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+        -webkit-overflow-scrolling: touch;
     }
-
-    .controls-panel.visible {
-        transform: translateY(0);
+    
+    #controls input, #controls button {
+        font-size: 16px; /* Prevent zoom on iOS */
+        padding: 8px;
+        margin: 4px 0;
+        width: 100%;
+        box-sizing: border-box;
     }
-
-    .toggle-controls-btn {
-        position: fixed;
-        bottom: 15px;
-        left: 15px;
-        padding: 12px 20px;
-        font-size: 16px;
-        z-index: 1001;
-        background: #2196F3;
-        color: white;
-        border: none;
-        border-radius: 25px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    }
-
-    #search-input,
-    .action-button,
-    #search-button {
-        padding: 12px;
-        font-size: 16px;
-        margin: 5px 0;
-    }
-
-    .places-list {
+    
+    #places-list {
         max-height: 30vh;
         overflow-y: auto;
     }
-
-    .location-info {
-        font-size: 16px;
-        margin: 10px 0;
+    
+    .place-item {
+        padding: 8px;
+        margin: 4px 0;
+        background: #f5f5f5;
+        border-radius: 4px;
     }
-
-    .coordinates-display {
-        font-size: 14px;
-        margin: 10px 0;
-    }
-
-    .zoom-controls {
+    
+    #toggle-controls-btn {
         position: fixed;
-        top: 20px;
-        right: 20px;
+        bottom: 10px;
+        right: 10px;
         z-index: 1001;
+        padding: 10px 20px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        font-size: 14px;
     }
-
-    .zoom-button {
-        width: 48px;
-        height: 48px;
-        font-size: 28px;
-        margin: 5px;
-        background: white;
-        border: 1px solid #ccc;
-        border-radius: 50%;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
+    
+    #search-input {
+        font-size: 16px;
+        padding: 8px;
+        width: 100%;
+        box-sizing: border-box;
     }
-
-    .zoom-button:active {
-        transform: scale(0.95);
-        background: #e0e0e0;
+    
+    #search-button {
+        width: 100%;
+        margin-top: 8px;
+    }
+    
+    #location-info {
+        font-size: 14px;
+        margin: 8px 0;
+    }
+    
+    #coordinates-display {
+        font-size: 12px;
+        margin: 8px 0;
     }
 }
 

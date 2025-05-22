@@ -48,7 +48,10 @@ const state = {
         startOffsetY: 0,
         targetOffsetX: 0,
         targetOffsetY: 0
-    }
+    },
+    isDragging: false,
+    dragStart: { x: 0, y: 0 },
+    lastDragPosition: { x: 0, y: 0 }
 };
 
 const config = {
@@ -83,7 +86,11 @@ const config = {
     zoom: {
         singlePoint: 1.2,  // Zoom level when focusing on a single point
         base: 0.9,        // Base zoom level multiplier for fitting map to window
-        minPathScale: 0.3 // Minimum scale factor for path view (prevents zooming out too far)
+        minPathScale: 0.3, // Minimum scale factor for path view (prevents zooming out too far)
+        buttonStep: 0.6,   // How much to zoom in/out per button click
+        wheelStep: 0.6,    // Step for mouse wheel zooming
+        max: 3.0,         // Maximum zoom level
+        min: 0.3          // Minimum zoom level
     },
 
     // Path and view settings
@@ -1085,6 +1092,108 @@ function setupEventListeners() {
 
         if (state.isLocationSelectMode) {
             drawMap();
+        }
+    });
+
+    // Mouse wheel zoom
+    elements.canvas.addEventListener('wheel', (event) => {
+        event.preventDefault();
+
+        // Get the actual delta value for smoother control
+        const delta = -event.deltaY * 0.001; // Scale down the delta for finer control
+        
+        // Use a smooth exponential function for the zoom factor
+        const zoomFactor = Math.exp(delta * config.zoom.wheelStep);
+
+        const newScale = state.zoomLevel * zoomFactor;
+        const clampedScale = Math.min(Math.max(newScale, config.zoom.min), config.zoom.max);
+
+        if (clampedScale !== state.zoomLevel) {
+            // Calculate new offset to keep current position centered
+            const scaleChange = clampedScale / state.zoomLevel;
+            const newOffsetX = state.zoomCenter.x - (state.userLocation.imageX - state.zoomCenter.x) * (scaleChange - 1);
+            const newOffsetY = state.zoomCenter.y - (state.userLocation.imageY - state.zoomCenter.y) * (scaleChange - 1);
+
+            // Apply changes immediately without animation
+            state.zoomLevel = clampedScale;
+            state.zoomCenter.x = newOffsetX;
+            state.zoomCenter.y = newOffsetY;
+            drawMap();
+        }
+    });
+
+    // Drag functionality
+    elements.canvas.addEventListener('mousedown', (event) => {
+        if (event.button === 0) { // Left mouse button
+            state.isDragging = true;
+            state.dragStart = { x: event.clientX, y: event.clientY };
+            state.lastDragPosition = { x: state.zoomCenter.x, y: state.zoomCenter.y };
+            elements.canvas.style.cursor = 'grabbing';
+        }
+    });
+
+    elements.canvas.addEventListener('mousemove', (event) => {
+        if (state.isDragging) {
+            const dx = event.clientX - state.dragStart.x;
+            const dy = event.clientY - state.dragStart.y;
+
+            state.zoomCenter.x = state.lastDragPosition.x + dx;
+            state.zoomCenter.y = state.lastDragPosition.y + dy;
+
+            drawMap();
+        }
+    });
+
+    elements.canvas.addEventListener('mouseup', () => {
+        if (state.isDragging) {
+            state.isDragging = false;
+            elements.canvas.style.cursor = 'grab';
+        }
+    });
+
+    elements.canvas.addEventListener('mouseleave', () => {
+        if (state.isDragging) {
+            state.isDragging = false;
+            elements.canvas.style.cursor = 'grab';
+        }
+    });
+
+    // Zoom controls
+    document.getElementById('zoom-in').addEventListener('click', () => {
+        const zoomFactor = 1 + config.zoom.buttonStep;
+        const newScale = state.zoomLevel * zoomFactor;
+        const clampedScale = Math.min(newScale, config.zoom.max);
+
+        if (clampedScale !== state.zoomLevel) {
+            // Calculate new offset to keep user location centered
+            const scaleChange = clampedScale / state.zoomLevel;
+            const newOffsetX = state.zoomCenter.x - (state.userLocation.imageX - state.zoomCenter.x) * (scaleChange - 1);
+            const newOffsetY = state.zoomCenter.y - (state.userLocation.imageY - state.zoomCenter.y) * (scaleChange - 1);
+
+            // Use a short animation for smooth zoom
+            const originalDuration = state.animation.duration;
+            state.animation.duration = 50;
+            startZoomAnimation(clampedScale, newOffsetX, newOffsetY, false);
+            state.animation.duration = originalDuration;
+        }
+    });
+
+    document.getElementById('zoom-out').addEventListener('click', () => {
+        const zoomFactor = 1 / (1 + config.zoom.buttonStep);
+        const newScale = state.zoomLevel * zoomFactor;
+        const clampedScale = Math.max(newScale, config.zoom.min);
+
+        if (clampedScale !== state.zoomLevel) {
+            // Calculate new offset to keep user location centered
+            const scaleChange = clampedScale / state.zoomLevel;
+            const newOffsetX = state.zoomCenter.x - (state.userLocation.imageX - state.zoomCenter.x) * (scaleChange - 1);
+            const newOffsetY = state.zoomCenter.y - (state.userLocation.imageY - state.zoomCenter.y) * (scaleChange - 1);
+
+            // Use a short animation for smooth zoom
+            const originalDuration = state.animation.duration;
+            state.animation.duration = 50;
+            startZoomAnimation(clampedScale, newOffsetX, newOffsetY, false);
+            state.animation.duration = originalDuration;
         }
     });
 }

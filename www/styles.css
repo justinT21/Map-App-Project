@@ -371,3 +371,18 @@ body {
 .zoom-button:active {
     background: #e0e0e0;
 }
+
+.places-list-scrollable {
+    height: 200px; /* Adjust as needed */
+    overflow-y: scroll;
+    border: 1px solid #ccc;
+    margin-top: 5px;
+}
+
+.places-search {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}

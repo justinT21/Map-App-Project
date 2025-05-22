@@ -5,8 +5,6 @@ import PathFinder from './algorithm.js';
 const elements = {
     canvas: document.getElementById('canvas'),
     ctx: canvas.getContext('2d'),
-    searchInput: document.getElementById('search-input'),
-    searchButton: document.getElementById('search-button'),
     locationInfo: document.getElementById('location-info'),
     coordinatesDisplay: document.getElementById('coordinates-display'),
     copyButton: document.getElementById('copy-coords-btn'),
@@ -306,23 +304,41 @@ function initializePlaces(locations) {
 }
 
 function updatePlacesList() {
-    elements.placesList.innerHTML = '<h3>Places</h3>';
+    elements.placesList.innerHTML = `
+        <h3>Places</h3>
+        <input type="text" id="places-search" class="places-search" placeholder="Search places...">
+        <div class="places-list-scrollable"></div>
+    `;
 
-    state.places.forEach(place => {
-        if (place.name.startsWith('Location')) return;
+    const searchInput = document.getElementById('places-search');
+    const placesListScrollable = document.querySelector('.places-list-scrollable');
 
-        const item = document.createElement('div');
-        item.className = 'place-item';
-        if (state.selectedPlace && state.selectedPlace.id === place.id) {
-            item.classList.add('selected');
-        }
+    function populatePlaces(places) {
+        placesListScrollable.innerHTML = '';
+        places.forEach(place => {
+            const item = document.createElement('div');
+            item.className = 'place-item';
+            if (state.selectedPlace && state.selectedPlace.id === place.id) {
+                item.classList.add('selected');
+            }
 
-        item.textContent = place.name;
-        item.dataset.id = place.id;
+            item.textContent = place.name;
+            item.dataset.id = place.id;
 
-        item.addEventListener('click', () => selectPlace(place));
-        elements.placesList.appendChild(item);
+            item.addEventListener('click', () => selectPlace(place));
+            placesListScrollable.appendChild(item);
+        });
+    }
+
+    searchInput.addEventListener('input', () => {
+        const searchTerm = searchInput.value.trim().toLowerCase();
+        const filteredPlaces = state.places.filter(place =>
+            place.name.toLowerCase().includes(searchTerm)
+        );
+        populatePlaces(filteredPlaces);
     });
+
+    populatePlaces(state.places);
 }
 
 function selectPlace(place) {
@@ -983,29 +999,6 @@ function setupEventListeners() {
     // Reset view button
     document.getElementById('reset-view-btn').addEventListener('click', resetZoom);
 
-    // Search button click
-    elements.searchButton.addEventListener('click', () => {
-        const searchTerm = elements.searchInput.value.trim().toLowerCase();
-        if (!searchTerm) return;
-
-        const matches = state.places.filter(place =>
-            place.name.toLowerCase().includes(searchTerm)
-        );
-
-        if (matches.length > 0) {
-            selectPlace(matches[0]);
-            elements.searchInput.value = '';
-        } else {
-            alert('No matching places found');
-        }
-    });
-
-    // Search input enter key
-    elements.searchInput.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-            elements.searchButton.click();
-        }
-    });
 
     // Copy coordinates button
     elements.copyButton.addEventListener('click', () => {

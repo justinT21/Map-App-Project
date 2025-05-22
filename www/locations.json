@@ -1,7 +1,50 @@
 [
-    { "id": "entrance", "name": "Main Entrance", "x": 538.086, "y": 332.921 },
-    { "id": "cafeteria", "name": "Cafeteria", "x": 1761, "y": 698.598 },
-    { "id": "library", "name": "Library", "x": 1236.65, "y": 504.378 },
-    { "id": "gym", "name": "Gymnasium", "x": 643.965, "y": 335.5 },
-    { "id": "admin", "name": "Administration", "x": 950, "y": 400 }
+    {
+        "id": "cafeteria",
+        "name": "Cafeteria",
+        "x": 489,
+        "y": 885
+    },
+    {
+        "id": "library",
+        "name": "Library",
+        "x": 744,
+        "y": 985
+    },
+    {
+        "id": "maingym",
+        "name": "Main Gym",
+        "x": 611,
+        "y": 728
+    },
+    {
+        "id": "admin",
+        "name": "Administration",
+        "x": 418,
+        "y": 1001
+    },
+    {
+        "id": "314",
+        "name": "314",
+        "x": 500,
+        "y": 790
+    },
+    {
+        "id": "313",
+        "name": "313",
+        "x": 464,
+        "y": 790
+    },
+    {
+        "id": "316",
+        "name": "316",
+        "x": 499,
+        "y": 738
+    },
+    {
+        "id": "315",
+        "name": "315",
+        "x": 467,
+        "y": 740
+    }
 ]

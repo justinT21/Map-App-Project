@@ -135,7 +135,7 @@ class MapEditor:
 
     def save_locations(self):
         with open(self.locations_path, 'w') as f:
-            json.dump(self.locations, f, indent=4)
+            json.dump(list(self.locations.values()), f, indent=4)
         self.display_locations()
 
 if __name__ == '__main__':

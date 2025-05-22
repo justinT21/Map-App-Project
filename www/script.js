@@ -231,34 +231,6 @@ async function loadGraphDataDirectly() {
 function initializePlaces(locations) {
     const uniquePoints = new Map();
 
-    // Extract unique points from graph data
-    state.graphData.forEach(edge => {
-        const id1 = `${edge.x1},${edge.y1}`;
-        const id2 = `${edge.x2},${edge.y2}`;
-
-        if (!uniquePoints.has(id1)) {
-            uniquePoints.set(id1, {
-                id: id1,
-                name: `Location ${uniquePoints.size + 1}`,
-                x: edge.x1,
-                y: edge.y1,
-                imageX: edge.x1,
-                imageY: edge.y1
-            });
-        }
-
-        if (!uniquePoints.has(id2)) {
-            uniquePoints.set(id2, {
-                id: id2,
-                name: `Location ${uniquePoints.size + 1}`,
-                x: edge.x2,
-                y: edge.y2,
-                imageX: edge.x2,
-                imageY: edge.y2
-            });
-        }
-    });
-
     state.places = Array.from(uniquePoints.values());
 
     // Add named locations
@@ -430,7 +402,7 @@ function findPath(start, end) {
 
         // Calculate target offsets to center the view
         const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
-        const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+        const targetOffsetY = (elements.canvas.height - state.mapImage.height / 2) * targetScale;
 
         // Adjust offsets to center on the weighted center point
         const finalOffsetX = targetOffsetX - (centerX - state.mapImage.width / 2) * targetScale;
@@ -605,6 +577,11 @@ function drawMap() {
     }
 
     // Draw location selection indicator if in selection mode
+    if (state.userLocation) {
+        drawUserLocation(scale);
+    }
+
+    // Draw location selection indicator if in selection mode
     if (state.isLocationSelectMode) {
         drawLocationSelection(scale, offsetX, offsetY);
     }
@@ -653,8 +630,6 @@ function drawPath(scale) {
 
 function drawPlaces(scale) {
     state.places.forEach(place => {
-        if (place.name.startsWith('Location')) return;
-
         // Draw point
         elements.ctx.beginPath();
         elements.ctx.arc(place.imageX, place.imageY, 5 / scale, 0, Math.PI * 2);

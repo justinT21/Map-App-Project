@@ -270,19 +270,17 @@ async function loadGraphDataDirectly() {
 
 // ===== Places Management =====
 function initializePlaces(locations) {
-    state.places = [];
+    state.places = locations.map(loc => ({
+        id: loc.id,
+        name: loc.name,
+        x: loc.x,
+        y: loc.y,
+        imageX: loc.x,
+        imageY: loc.y
+    }));
 
-    // Add named locations
-    locations.forEach(loc => {
-        state.places.push({
-            id: loc.id,
-            name: loc.name,
-            x: loc.x,
-            y: loc.y,
-            imageX: loc.x,
-            imageY: loc.y
-        });
-    });
+    // Sort the places alphabetically by name
+    state.places.sort((a, b) => a.name.localeCompare(b.name));
 
     // Calculate GPS coordinates for each place
     state.places.forEach(place => {

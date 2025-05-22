@@ -229,40 +229,18 @@ async function loadGraphDataDirectly() {
 
 // ===== Places Management =====
 function initializePlaces(locations) {
-    const uniquePoints = new Map();
-
-    state.places = Array.from(uniquePoints.values());
+    state.places = [];
 
     // Add named locations
     locations.forEach(loc => {
-        let closestPlace = null;
-        let minDistance = Infinity;
-
-        state.places.forEach(place => {
-            const distance = Math.sqrt(
-                Math.pow(place.x - loc.x, 2) +
-                Math.pow(place.y - loc.y, 2)
-            );
-
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestPlace = place;
-            }
+        state.places.push({
+            id: loc.id,
+            name: loc.name,
+            x: loc.x,
+            y: loc.y,
+            imageX: loc.x,
+            imageY: loc.y
         });
-
-        if (closestPlace && minDistance < 50) {
-            closestPlace.name = loc.name;
-            closestPlace.id = loc.id;
-        } else {
-            state.places.push({
-                id: loc.id,
-                name: loc.name,
-                x: loc.x,
-                y: loc.y,
-                imageX: loc.x,
-                imageY: loc.y
-            });
-        }
     });
 
     // Calculate GPS coordinates for each place

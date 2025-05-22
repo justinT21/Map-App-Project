@@ -1215,36 +1215,23 @@ function setupEventListeners() {
             const scale = initialScale * (currentDistance / initialDistance);
             const clampedScale = Math.min(Math.max(scale, config.zoom.min), config.zoom.max);
 
-            // Add a threshold to prevent very small zoom changes
-            const zoomThreshold = 0.01;
-            if (Math.abs(clampedScale - state.zoomLevel) > zoomThreshold) {
-                // Calculate the center of the zoom
-                const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
-                const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+            // Calculate the center of the zoom
+            const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+            const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
 
-                // Calculate the current center point in image coordinates with higher precision
-                const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
-                const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
+            // Calculate the current center point in image coordinates with higher precision
+            const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
+            const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
 
-                // Calculate new offsets to maintain the exact same center point
-                const newOffsetX = centerX - imageCenterX * clampedScale;
-                const newOffsetY = centerY - imageCenterY * clampedScale;
+            // Calculate new offsets to maintain the exact same center point
+            const newOffsetX = centerX - imageCenterX * clampedScale;
+            const newOffsetY = centerY - imageCenterY * clampedScale;
 
-                console.log("initialDistance:", initialDistance);
-                console.log("currentDistance:", currentDistance);
-                console.log("scale:", scale);
-                console.log("clampedScale:", clampedScale);
-                console.log("centerX:", centerX);
-                console.log("centerY:", centerY);
-                console.log("newOffsetX:", newOffsetX);
-                console.log("newOffsetY:", newOffsetY);
-
-                // Apply changes immediately without animation
-                state.zoomLevel = clampedScale;
-                state.zoomCenter.x = newOffsetX;
-                state.zoomCenter.y = newOffsetY;
-                drawMap();
-            }
+            // Apply changes immediately without animation
+            state.zoomLevel = clampedScale;
+            state.zoomCenter.x = newOffsetX;
+            state.zoomCenter.y = newOffsetY;
+            drawMap();
         }
     });
 

@@ -8,6 +8,7 @@ class MapEditor:
         self.image_path = image_path
         self.locations_path = locations_path
         self.locations = {}
+        self.adding_location = False
 
         # Load image
         self.image = Image.open(self.image_path)
@@ -25,7 +26,7 @@ class MapEditor:
         # Add button
         self.add_button = tk.Button(self.master, text="Add Location", command=self.add_location)
         self.add_button.pack()
-        self.master.bind('a', lambda event: (self.add_location(), "break"))
+        self.master.bind('a', lambda event: (self.add_location(), "break") if not self.adding_location else None)
         self.master.bind('s', lambda event: self.save_locations())
 
 
@@ -38,7 +39,7 @@ class MapEditor:
         self.name_entry.pack_forget()  # Hide initially
 
         # Bind click event
-        self.canvas.bind("<Button-1>", self.on_click)
+        self.canvas.bind("<Button-1>", lambda event: self.on_canvas_click(event) if self.adding_location else self.on_click(event))
         self.canvas.bind("<B1-Motion>", self.on_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
 
@@ -72,26 +73,33 @@ class MapEditor:
 
     def add_location(self):
         print("add_location called")
+        self.adding_location = True
 
         self.name_label.pack()
         self.name_entry.pack()
         self.name_entry.focus_set()
         self.name_entry.delete(0, tk.END)
 
-        self.canvas.bind("<ButtonRelease-3>", self.on_canvas_click)
-
     def on_canvas_click(self, event):
         print("on_canvas_click called")
         x, y = event.x, event.y
-        name = self.name_entry.get()
-        new_id = name.lower().replace(" ", "")
-        self.locations[name] = {'id': new_id, 'name': name, 'x': x, 'y': y}
-        self.display_locations()
-        self.name_label.pack_forget()
-        self.name_entry.pack_forget()
-        self.name_entry.delete(0, tk.END)
-        self.name_entry.focus_set()
-        self.canvas.unbind("<ButtonRelease-3>")
+        if self.adding_location:
+            name = self.name_entry.get()
+            new_id = name.lower().replace(" ", "")
+            self.locations[name] = {'id': new_id, 'name': name, 'x': x, 'y': y}
+            self.display_locations()
+            self.name_label.pack_forget()
+            self.name_entry.pack_forget()
+            self.name_entry.delete(0, tk.END)
+            self.name_entry.focus_set()
+            self.adding_location = False
+        else:
+            for name, location in self.locations.items():
+                loc_x, loc_y = location['x'], location['y']
+                if (x - loc_x)**2 + (y - loc_y)**2 <= 25:  # Check if click is within 5 pixels
+                    self.selected_location = name
+                    print(f"Clicked on {name}")
+                    return
 
     def load_locations(self):
         try:

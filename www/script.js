@@ -436,8 +436,8 @@ function findPath(start, end) {
         const targetOffsetY = (elements.canvas.height / 2) - (state.mapImage.height / 2) * targetScale;
 
         // Adjust offsets to center on the weighted center point
-        const finalOffsetX = targetOffsetX - centerX * targetScale * 0;
-        const finalOffsetY = targetOffsetY - centerY * targetScale * 0;
+        const finalOffsetX = targetOffsetX - centerX * targetScale * isMobile;
+        const finalOffsetY = targetOffsetY - centerY * targetScale * isMobile;
 
         console.log('targetScale:', targetScale);
         console.log('finalOffsetX:', finalOffsetX);

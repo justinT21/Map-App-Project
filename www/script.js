@@ -109,7 +109,7 @@ const config = {
 
     // Path and view settings
     view: {
-        playerWeight: 0.5,  // Weight given to player location when calculating view center
+        playerWeight: 0.0,  // Weight given to player location when calculating view center
         pathPadding: 300    // Padding around path when calculating view bounds
     }
 };
@@ -436,8 +436,13 @@ function findPath(start, end) {
         const targetOffsetY = (elements.canvas.height / 2) - (state.mapImage.height / 2) * targetScale;
 
         // Adjust offsets to center on the weighted center point
-        const finalOffsetX = targetOffsetX - centerX * targetScale * 0;
-        const finalOffsetY = targetOffsetY - centerY * targetScale * 0;
+        let finalOffsetX = targetOffsetX - centerX * targetScale;
+        let finalOffsetY = targetOffsetY - centerY * targetScale;
+
+        if (!isMobile) {
+            finalOffsetX = targetOffsetX;
+            finalOffsetY = targetOffsetY;
+        }
 
         console.log('targetScale:', targetScale);
         console.log('finalOffsetX:', finalOffsetX);

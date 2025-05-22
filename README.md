@@ -34,5 +34,5 @@ A new interactive map navigation application is now available. To use it:
    - Search for locations using the search bar
    - Click on any location in the places list to select it and show a path
    - Press D to toggle debug information
- 
+
 The application uses the exact same coordinate transformation from interpolation.py to convert between GPS coordinates and image coordinates.

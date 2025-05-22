@@ -108,7 +108,7 @@ const config = {
 
     // Path and view settings
     view: {
-        playerWeight: 0.5,  // Weight given to player location when calculating view center
+        playerWeight: 0.0,  // Weight given to player location when calculating view center
         pathPadding: 300    // Padding around path when calculating view bounds
     }
 };
@@ -152,6 +152,47 @@ async function init() {
         await promptForLocation();
 
         elements.loadingIndicator.style.display = 'none';
+
+        // Initialize zoom level and center based on user location or default location
+        if (state.userLocation) {
+            const baseScale = Math.min(
+                elements.canvas.width / state.mapImage.width,
+                elements.canvas.height / state.mapImage.height
+            ) * config.zoom.base;
+
+            const targetScale = baseScale * config.zoom.singlePoint;
+            const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
+            const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+
+            // Adjust offsets to center on the user location
+            const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
+            const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
+
+            state.zoomLevel = targetScale;
+            state.zoomCenter.x = finalOffsetX;
+            state.zoomCenter.y = finalOffsetY;
+        } else {
+            // Use default location if user location is not available
+            state.userLocation = config.defaultLocation;
+
+            const baseScale = Math.min(
+                elements.canvas.width / state.mapImage.width,
+                elements.canvas.height / state.mapImage.height
+            ) * config.zoom.base;
+
+            const targetScale = baseScale * config.zoom.singlePoint;
+            const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
+            const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+
+            // Adjust offsets to center on the default location
+            const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
+            const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
+
+            state.zoomLevel = targetScale;
+            state.zoomCenter.x = finalOffsetX;
+            state.zoomCenter.y = finalOffsetY;
+        }
+
     } catch (error) {
         console.error('Error initializing application:', error);
         elements.loadingIndicator.textContent = 'Error loading map data. Please refresh the page.';
@@ -385,6 +426,15 @@ function findPath(start, end) {
         // Adjust offsets to center on the weighted center point
         const finalOffsetX = targetOffsetX - (centerX - state.mapImage.width / 2) * targetScale;
         const finalOffsetY = targetOffsetY - (centerY - state.mapImage.height / 2) * targetScale;
+
+        console.log('targetScale:', targetScale);
+        console.log('finalOffsetX:', finalOffsetX);
+        console.log('finalOffsetY:', finalOffsetY);
+
+        // Update state variables immediately
+        state.zoomLevel = targetScale;
+        state.zoomCenter.x = finalOffsetX;
+        state.zoomCenter.y = finalOffsetY;
 
         // Start zoom animation immediately
         startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
@@ -848,8 +898,6 @@ function setDefaultLocation() {
     const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
 
     // Update zoom center to match default location
-    state.zoomCenter.x = finalOffsetX;
-    state.zoomCenter.y = finalOffsetY;
     state.zoomLevel = targetScale;
 
     // Start zoom animation and force an immediate draw

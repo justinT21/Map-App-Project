@@ -25,6 +25,7 @@ class MapEditor:
         # Add button
         self.add_button = tk.Button(self.master, text="Add Location", command=self.add_location)
         self.add_button.pack()
+        self.master.bind('a', lambda event: self.add_location())
 
         # Remove button
         self.remove_button = tk.Button(self.master, text="Remove Location", command=self.remove_location)
@@ -77,17 +78,9 @@ class MapEditor:
         self.selected_location = None
 
     def add_location(self):
+        print("add_location called")
         def save_new_location():
-            name = name_entry.get()
-            try:
-                x = int(x_entry.get())
-                y = int(y_entry.get())
-                new_id = name.lower().replace(" ", "")
-                self.locations[name] = {'id': new_id, 'name': name, 'x': x, 'y': y}
-                self.display_locations()
-                add_window.destroy()
-            except ValueError:
-                print("Error: Invalid coordinates.")
+            add_window.destroy()
 
         add_window = tk.Toplevel(self.master)
         add_window.title("Add New Location")
@@ -96,19 +89,19 @@ class MapEditor:
         name_label.grid(row=0, column=0)
         name_entry = tk.Entry(add_window)
         name_entry.grid(row=0, column=1)
+        name_entry.focus_set()
 
-        x_label = tk.Label(add_window, text="X Coordinate:")
-        x_label.grid(row=1, column=0)
-        x_entry = tk.Entry(add_window)
-        x_entry.grid(row=1, column=1)
+        self.canvas.bind("<ButtonRelease-3>", lambda event: self.on_canvas_click(event, name_entry, add_window))
 
-        y_label = tk.Label(add_window, text="Y Coordinate:")
-        y_label.grid(row=2, column=0)
-        y_entry = tk.Entry(add_window)
-        y_entry.grid(row=2, column=1)
-
-        save_button = tk.Button(add_window, text="Save", command=save_new_location)
-        save_button.grid(row=3, column=0, columnspan=2)
+    def on_canvas_click(self, event, name_entry, add_window):
+        print("on_canvas_click called")
+        x, y = event.x, event.y
+        name = name_entry.get()
+        new_id = name.lower().replace(" ", "")
+        self.locations[name] = {'id': new_id, 'name': name, 'x': x, 'y': y}
+        self.display_locations()
+        add_window.destroy()
+        self.canvas.unbind("<ButtonRelease-3>")
 
     def load_locations(self):
         try:

@@ -1215,51 +1215,42 @@ function setupEventListeners() {
             const scale = initialScale * (currentDistance / initialDistance);
             const clampedScale = Math.min(Math.max(scale, config.zoom.min), config.zoom.max);
 
-            if (clampedScale !== state.zoomLevel) {
-            // Keep the current center point exactly the same
-            const centerX = elements.canvas.width / 2;
-            const centerY = elements.canvas.height / 2;
-            
+            // Calculate the center of the zoom
+            const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+            const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+
             // Calculate the current center point in image coordinates with higher precision
             const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
             const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
-            
+
             // Calculate new offsets to maintain the exact same center point
             const newOffsetX = centerX - imageCenterX * clampedScale;
             const newOffsetY = centerY - imageCenterY * clampedScale;
 
-                // Apply changes immediately without animation
-                state.zoomLevel = clampedScale;
-                state.zoomCenter.x = newOffsetX;
-                state.zoomCenter.y = newOffsetY;
-                drawMap();
-            }
+            // Apply changes immediately without animation
+            state.zoomLevel = clampedScale;
+            state.zoomCenter.x = newOffsetX;
+            state.zoomCenter.y = newOffsetY;
+            drawMap();
         }
     });
 
     // Touch drag support
     let touchStartX = 0;
     let touchStartY = 0;
-    let lastTouchX = 0;
-    let lastTouchY = 0;
 
     elements.canvas.addEventListener('touchstart', (event) => {
         if (event.touches.length === 1) {
-            touchStartX = event.touches[0].clientX;
-            touchStartY = event.touches[0].clientY;
-            lastTouchX = state.zoomCenter.x;
-            lastTouchY = state.zoomCenter.y;
+            touchStartX = event.touches[0].clientX - state.zoomCenter.x;
+            touchStartY = event.touches[0].clientY - state.zoomCenter.y;
         }
     });
 
     elements.canvas.addEventListener('touchmove', (event) => {
         if (event.touches.length === 1) {
             event.preventDefault();
-            const dx = event.touches[0].clientX - touchStartX;
-            const dy = event.touches[0].clientY - touchStartY;
-
-            state.zoomCenter.x = lastTouchX + dx;
-            state.zoomCenter.y = lastTouchY + dy;
+            state.zoomCenter.x = event.touches[0].clientX - touchStartX;
+            state.zoomCenter.y = event.touches[0].clientY - touchStartY;
             drawMap();
         }
     });

@@ -1,0 +1,7 @@
+[
+    { "id": "entrance", "name": "Main Entrance", "x": 538.086, "y": 332.921 },
+    { "id": "cafeteria", "name": "Cafeteria", "x": 1761, "y": 698.598 },
+    { "id": "library", "name": "Library", "x": 1236.65, "y": 504.378 },
+    { "id": "gym", "name": "Gymnasium", "x": 643.965, "y": 335.5 },
+    { "id": "admin", "name": "Administration", "x": 950, "y": 400 }
+]

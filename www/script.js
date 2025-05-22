@@ -54,6 +54,20 @@ const state = {
     lastDragPosition: { x: 0, y: 0 }
 };
 
+async function loadLocations() {
+    try {
+        const response = await fetch('./locations.json');
+        if (!response.ok) {
+            throw new Error(`Failed to load locations.json: ${response.status} ${response.statusText}`);
+        }
+        const locations = await response.json();
+        return locations;
+    } catch (error) {
+        console.error('Error loading locations.json:', error);
+        return [];
+    }
+}
+
 const config = {
     // Affine transformation parameters (image → GPS after 90° rotation)
     x_scale: 3.4051570994264277e-06,
@@ -114,6 +128,9 @@ if (isMobile) {
 // ===== Initialization =====
 async function init() {
     try {
+        // Load locations from JSON file
+        const locations = await loadLocations();
+
         // Test coordinate conversion functions
         testCoordinateConversion();
 
@@ -127,7 +144,7 @@ async function init() {
         }
 
         state.pathFinder = new PathFinder(state.graphData);
-        initializePlaces();
+        initializePlaces(locations);
         drawMap();
 
         // Set up mobile-friendly controls
@@ -213,7 +230,7 @@ async function loadGraphDataDirectly() {
 }
 
 // ===== Places Management =====
-function initializePlaces() {
+function initializePlaces(locations) {
     const uniquePoints = new Map();
 
     // Extract unique points from graph data
@@ -247,15 +264,7 @@ function initializePlaces() {
     state.places = Array.from(uniquePoints.values());
 
     // Add named locations
-    const namedLocations = [
-        { id: 'entrance', name: 'Main Entrance', x: 538.086, y: 332.921 },
-        { id: 'cafeteria', name: 'Cafeteria', x: 1761, y: 698.598 },
-        { id: 'library', name: 'Library', x: 1236.65, y: 504.378 },
-        { id: 'gym', name: 'Gymnasium', x: 643.965, y: 335.5 },
-        { id: 'admin', name: 'Administration', x: 950, y: 400 }
-    ];
-
-    namedLocations.forEach(loc => {
+    locations.forEach(loc => {
         let closestPlace = null;
         let minDistance = Infinity;
 

@@ -1138,10 +1138,18 @@ function setupEventListeners() {
         const clampedScale = Math.min(Math.max(newScale, config.zoom.min), config.zoom.max);
 
         if (clampedScale !== state.zoomLevel) {
-            // Calculate new offset to keep user location centered
+            // Calculate the center of the screen in image coordinates
+            const centerX = elements.canvas.width / 2;
+            const centerY = elements.canvas.height / 2;
+            
+            // Convert screen center to image coordinates
+            const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
+            const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
+            
+            // Calculate new offsets to keep the center point fixed
             const scaleChange = clampedScale / state.zoomLevel;
-            const newOffsetX = state.zoomCenter.x - (state.userLocation.imageX - state.zoomCenter.x) * (scaleChange - 1);
-            const newOffsetY = state.zoomCenter.y - (state.userLocation.imageY - state.zoomCenter.y) * (scaleChange - 1);
+            const newOffsetX = centerX - imageCenterX * clampedScale;
+            const newOffsetY = centerY - imageCenterY * clampedScale;
 
             // Apply changes immediately without animation
             state.zoomLevel = clampedScale;
@@ -1179,10 +1187,18 @@ function setupEventListeners() {
             const clampedScale = Math.min(Math.max(scale, config.zoom.min), config.zoom.max);
 
             if (clampedScale !== state.zoomLevel) {
-                // Calculate new offset to keep user location centered
+                // Calculate the center of the screen in image coordinates
+                const centerX = elements.canvas.width / 2;
+                const centerY = elements.canvas.height / 2;
+                
+                // Convert screen center to image coordinates
+                const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
+                const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
+                
+                // Calculate new offsets to keep the center point fixed
                 const scaleChange = clampedScale / state.zoomLevel;
-                const newOffsetX = state.zoomCenter.x - (state.userLocation.imageX - state.zoomCenter.x) * (scaleChange - 1);
-                const newOffsetY = state.zoomCenter.y - (state.userLocation.imageY - state.zoomCenter.y) * (scaleChange - 1);
+                const newOffsetX = centerX - imageCenterX * clampedScale;
+                const newOffsetY = centerY - imageCenterY * clampedScale;
 
                 // Apply changes immediately without animation
                 state.zoomLevel = clampedScale;

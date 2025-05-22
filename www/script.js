@@ -840,8 +840,28 @@ function setDefaultLocation() {
     elements.locationInfo.textContent = 'Your location: [Default]';
     updateCoordinatesDisplay(state.userLocation.latitude, state.userLocation.longitude);
 
-    resetZoom();
-    drawMap();
+    // Calculate new zoom level centered on default location
+    const baseScale = Math.min(
+        elements.canvas.width / state.mapImage.width,
+        elements.canvas.height / state.mapImage.height
+    ) * config.zoom.base;
+
+    const targetScale = baseScale * config.zoom.singlePoint;
+    const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
+    const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
+
+    // Adjust offsets to center on the default location
+    const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
+    const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
+
+    // Update zoom center to match default location
+    state.zoomCenter.x = finalOffsetX;
+    state.zoomCenter.y = finalOffsetY;
+    state.zoomLevel = targetScale;
+
+    // Start zoom animation and force an immediate draw
+    startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
+    requestAnimationFrame(() => drawMap());
 }
 
 function updateCoordinatesDisplay(latitude, longitude) {
@@ -1058,15 +1078,20 @@ function setupEventListeners() {
                 const baseScale = Math.min(
                     elements.canvas.width / state.mapImage.width,
                     elements.canvas.height / state.mapImage.height
-                ) * 0.9;
+                ) * config.zoom.base;
 
-                const targetScale = baseScale * 1.5; // Zoom in a bit more than base scale
+                const targetScale = baseScale * config.zoom.singlePoint;
                 const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
                 const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
 
                 // Adjust offsets to center on the user location
                 const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
                 const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
+
+                // Update zoom center to match new location
+                state.zoomCenter.x = finalOffsetX;
+                state.zoomCenter.y = finalOffsetY;
+                state.zoomLevel = targetScale;
 
                 // Start zoom animation and force an immediate draw
                 startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
@@ -1101,7 +1126,7 @@ function setupEventListeners() {
 
         // Get the actual delta value for smoother control
         const delta = -event.deltaY * 0.001; // Scale down the delta for finer control
-        
+
         // Use a smooth exponential function for the zoom factor
         const zoomFactor = Math.exp(delta * config.zoom.wheelStep);
 
@@ -1109,7 +1134,7 @@ function setupEventListeners() {
         const clampedScale = Math.min(Math.max(newScale, config.zoom.min), config.zoom.max);
 
         if (clampedScale !== state.zoomLevel) {
-            // Calculate new offset to keep current position centered
+            // Calculate new offset to keep user location centered
             const scaleChange = clampedScale / state.zoomLevel;
             const newOffsetX = state.zoomCenter.x - (state.userLocation.imageX - state.zoomCenter.x) * (scaleChange - 1);
             const newOffsetY = state.zoomCenter.y - (state.userLocation.imageY - state.zoomCenter.y) * (scaleChange - 1);

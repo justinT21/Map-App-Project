@@ -656,20 +656,15 @@ function drawPath(scale) {
 
 function drawPlaces(scale) {
     state.places.forEach(place => {
-        // Draw point
-        elements.ctx.beginPath();
-        elements.ctx.arc(place.imageX, place.imageY, 5 / scale, 0, Math.PI * 2);
-
         if (state.selectedPlace && state.selectedPlace.id === place.id) {
-            elements.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
-        } else {
-            elements.ctx.fillStyle = 'rgba(0, 128, 255, 0.8)';
-        }
+            elements.ctx.beginPath();
+            elements.ctx.arc(place.imageX, place.imageY, 5 / scale, 0, Math.PI * 2);
 
-        elements.ctx.fill();
+            if (state.selectedPlace && state.selectedPlace.id === place.id) {
+                elements.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+            }
 
-        // Draw label only when selected
-        if (state.selectedPlace && state.selectedPlace.id === place.id) {
+            elements.ctx.fill();
             elements.ctx.font = `${12 / scale}px Arial`;
             elements.ctx.fillStyle = 'black';
             elements.ctx.textAlign = 'center';

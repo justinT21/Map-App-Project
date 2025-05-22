@@ -574,22 +574,22 @@ function drawMap() {
 }
 
 function drawGraphEdges(scale) {
-    elements.ctx.strokeStyle = 'rgba(0, 0, 255, 0.6)';
-    elements.ctx.lineWidth = 2 / scale;
+    // elements.ctx.strokeStyle = 'rgba(0, 0, 255, 0.6)';
+    // elements.ctx.lineWidth = 2 / scale;
 
-    let drawnEdges = 0;
+    // let drawnEdges = 0;
 
-    state.graphData.forEach(edge => {
-        if (isNaN(edge.x1) || isNaN(edge.y1) || isNaN(edge.x2) || isNaN(edge.y2)) return;
+    // state.graphData.forEach(edge => {
+    //     if (isNaN(edge.x1) || isNaN(edge.y1) || isNaN(edge.x2) || isNaN(edge.y2)) return;
 
-        elements.ctx.beginPath();
-        elements.ctx.moveTo(edge.x1, edge.y1);
-        elements.ctx.lineTo(edge.x2, edge.y2);
-        elements.ctx.stroke();
-        drawnEdges++;
-    });
+    //     elements.ctx.beginPath();
+    //     elements.ctx.moveTo(edge.x1, edge.y1);
+    //     elements.ctx.lineTo(edge.x2, edge.y2);
+    //     elements.ctx.stroke();
+    //     drawnEdges++;
+    // });
 
-    console.log(`Drew ${drawnEdges} edges out of ${state.graphData.length} total afds`);
+    // console.log(`Drew ${drawnEdges} edges out of ${state.graphData.length} total afds`);
 }
 
 function drawPath(scale) {
@@ -620,11 +620,13 @@ function drawPlaces(scale) {
 
         elements.ctx.fill();
 
-        // Draw label
-        elements.ctx.font = `${12 / scale}px Arial`;
-        elements.ctx.fillStyle = 'black';
-        elements.ctx.textAlign = 'center';
-        elements.ctx.fillText(place.name, place.imageX, place.imageY - 10 / scale);
+        // Draw label only when selected
+        if (state.selectedPlace && state.selectedPlace.id === place.id) {
+            elements.ctx.font = `${12 / scale}px Arial`;
+            elements.ctx.fillStyle = 'black';
+            elements.ctx.textAlign = 'center';
+            elements.ctx.fillText(place.name, place.imageX, place.imageY - 10 / scale);
+        }
     });
 }
 
@@ -1479,4 +1481,4 @@ function setupMobileControls() {
         elements.controls.style.display = 'block';
         elements.toggleControlsBtn.textContent = 'Hide Controls';
     }
-} 
+}

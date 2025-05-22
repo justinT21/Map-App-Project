@@ -25,11 +25,17 @@ class MapEditor:
         # Add button
         self.add_button = tk.Button(self.master, text="Add Location", command=self.add_location)
         self.add_button.pack()
-        self.master.bind('a', lambda event: self.add_location())
+        self.master.bind('a', lambda event: (self.add_location(), "break"))
+        self.master.bind('s', lambda event: self.save_locations())
 
-        # Remove button
-        self.remove_button = tk.Button(self.master, text="Remove Location", command=self.remove_location)
-        self.remove_button.pack()
+
+        # Name label and entry (initially hidden)
+        self.name_label = tk.Label(self.master, text="Name:")
+        self.name_label.pack()
+        self.name_label.pack_forget()  # Hide initially
+        self.name_entry = tk.Entry(self.master)
+        self.name_entry.pack()
+        self.name_entry.pack_forget()  # Hide initially
 
         # Bind click event
         self.canvas.bind("<Button-1>", self.on_click)
@@ -63,44 +69,28 @@ class MapEditor:
     def on_release(self, event):
         self.selected_location = None
 
-    def remove_location(self):
-        # Load locations
-        self.load_locations()
-
-        if self.selected_location:
-            del self.locations[self.selected_location]
-            self.selected_location = None
-            self.save_locations()
-
-        # Display locations
-        self.display_locations()
-
-        self.selected_location = None
 
     def add_location(self):
         print("add_location called")
-        def save_new_location():
-            add_window.destroy()
 
-        add_window = tk.Toplevel(self.master)
-        add_window.title("Add New Location")
+        self.name_label.pack()
+        self.name_entry.pack()
+        self.name_entry.focus_set()
+        self.name_entry.delete(0, tk.END)
 
-        name_label = tk.Label(add_window, text="Name:")
-        name_label.grid(row=0, column=0)
-        name_entry = tk.Entry(add_window)
-        name_entry.grid(row=0, column=1)
-        name_entry.focus_set()
+        self.canvas.bind("<ButtonRelease-3>", self.on_canvas_click)
 
-        self.canvas.bind("<ButtonRelease-3>", lambda event: self.on_canvas_click(event, name_entry, add_window))
-
-    def on_canvas_click(self, event, name_entry, add_window):
+    def on_canvas_click(self, event):
         print("on_canvas_click called")
         x, y = event.x, event.y
-        name = name_entry.get()
+        name = self.name_entry.get()
         new_id = name.lower().replace(" ", "")
         self.locations[name] = {'id': new_id, 'name': name, 'x': x, 'y': y}
         self.display_locations()
-        add_window.destroy()
+        self.name_label.pack_forget()
+        self.name_entry.pack_forget()
+        self.name_entry.delete(0, tk.END)
+        self.name_entry.focus_set()
         self.canvas.unbind("<ButtonRelease-3>")
 
     def load_locations(self):

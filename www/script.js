@@ -1187,17 +1187,17 @@ function setupEventListeners() {
             const clampedScale = Math.min(Math.max(scale, config.zoom.min), config.zoom.max);
 
             if (clampedScale !== state.zoomLevel) {
-                // Calculate the center point between the two touch points
-                const touchCenterX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
-                const touchCenterY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+                // Keep the current center point exactly the same
+                const centerX = elements.canvas.width / 2;
+                const centerY = elements.canvas.height / 2;
                 
-                // Convert touch center to image coordinates
-                const imageCenterX = (touchCenterX - state.zoomCenter.x) / state.zoomLevel;
-                const imageCenterY = (touchCenterY - state.zoomCenter.y) / state.zoomLevel;
+                // Calculate the current center point in image coordinates
+                const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
+                const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
                 
-                // Calculate new offsets to keep the touch center point fixed
-                const newOffsetX = touchCenterX - imageCenterX * clampedScale;
-                const newOffsetY = touchCenterY - imageCenterY * clampedScale;
+                // Calculate new offsets to maintain the exact same center point
+                const newOffsetX = centerX - imageCenterX * clampedScale;
+                const newOffsetY = centerY - imageCenterY * clampedScale;
 
                 // Apply changes immediately without animation
                 state.zoomLevel = clampedScale;

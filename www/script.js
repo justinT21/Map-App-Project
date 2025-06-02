@@ -36,18 +36,6 @@ const state = {
     zoomLevel: 1,
     zoomCenter: { x: 0, y: 0 },
     calculatedPaths: {}, // Store calculated paths
-    animation: {
-        isAnimating: false,
-        isResetting: false,
-        startTime: 0,
-        duration: 1000, // 1 second animation
-        startScale: 1,
-        targetScale: 1,
-        startOffsetX: 0,
-        startOffsetY: 0,
-        targetOffsetX: 0,
-        targetOffsetY: 0
-    },
     isDragging: false,
     dragStart: { x: 0, y: 0 },
     lastDragPosition: { x: 0, y: 0 }
@@ -144,6 +132,34 @@ async function init() {
 
         state.pathFinder = new PathFinder(state.graphData);
         initializePlaces(locations);
+        
+        // Load saved zoom state first
+        const savedState = localStorage.getItem('mapZoomState');
+        if (savedState) {
+            try {
+                const { zoomLevel, zoomCenter } = JSON.parse(savedState);
+                // Only restore if the values are valid numbers
+                if (!isNaN(zoomLevel) && !isNaN(zoomCenter.x) && !isNaN(zoomCenter.y)) {
+                    state.zoomLevel = zoomLevel;
+                    state.zoomCenter = zoomCenter;
+                }
+            } catch (e) {
+                console.error('Error loading saved zoom state:', e);
+            }
+        }
+
+        // If no valid saved state, set initial zoom
+        if (!savedState || isNaN(state.zoomLevel) || isNaN(state.zoomCenter.x) || isNaN(state.zoomCenter.y)) {
+            const baseScale = Math.min(
+                elements.canvas.width / state.mapImage.width,
+                elements.canvas.height / state.mapImage.height
+            ) * config.zoom.base;
+
+            state.zoomLevel = baseScale;
+            state.zoomCenter.x = (elements.canvas.width - state.mapImage.width * baseScale) / 2;
+            state.zoomCenter.y = (elements.canvas.height - state.mapImage.height * baseScale) / 2;
+        }
+
         drawMap();
 
         // Set up mobile-friendly controls
@@ -153,46 +169,6 @@ async function init() {
         await promptForLocation();
 
         elements.loadingIndicator.style.display = 'none';
-
-        // Initialize zoom level and center based on user location or default location
-        if (state.userLocation) {
-            const baseScale = Math.min(
-                elements.canvas.width / state.mapImage.width,
-                elements.canvas.height / state.mapImage.height
-            ) * config.zoom.base;
-
-            const targetScale = baseScale * config.zoom.singlePoint;
-            const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
-            const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
-
-            // Adjust offsets to center on the user location
-            const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
-            const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
-
-            state.zoomLevel = targetScale;
-            state.zoomCenter.x = finalOffsetX;
-            state.zoomCenter.y = finalOffsetY;
-        } else {
-            // Use default location if user location is not available
-            state.userLocation = config.defaultLocation;
-
-            const baseScale = Math.min(
-                elements.canvas.width / state.mapImage.width,
-                elements.canvas.height / state.mapImage.height
-            ) * config.zoom.base;
-
-            const targetScale = baseScale * config.zoom.singlePoint;
-            const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
-            const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
-
-            // Adjust offsets to center on the default location
-            const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
-            const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
-
-            state.zoomLevel = targetScale;
-            state.zoomCenter.x = finalOffsetX;
-            state.zoomCenter.y = finalOffsetY;
-        }
 
     } catch (error) {
         console.error('Error initializing application:', error);
@@ -360,13 +336,10 @@ function findPath(start, end) {
         console.error('PathFinder not initialized');
         return;
     }
-    
 
     // Find closest graph nodes to start and end points
     const startNode = findClosestGraphNode(start.imageX, start.imageY);
-    console.log(startNode);
     const endNode = findClosestGraphNode(end.imageX, end.imageY);
-    console.log(endNode);
 
     if (!startNode || !endNode) {
         console.error('Could not find valid graph nodes');
@@ -432,30 +405,21 @@ function findPath(start, end) {
         const centerY = start.imageY * userWeight + pathCenterY * (1 - userWeight);
 
         // Calculate target offsets to center the view
-        const targetOffsetX = (elements.canvas.width / 2) - (state.mapImage.width / 2) * targetScale;
-        const targetOffsetY = (elements.canvas.height / 2) - (state.mapImage.height / 2) * targetScale;
+        const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
+        const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
 
         // Adjust offsets to center on the weighted center point
-        let finalOffsetX = targetOffsetX - centerX * targetScale;
-        let finalOffsetY = targetOffsetY - centerY * targetScale;
+        const finalOffsetX = targetOffsetX - (centerX - state.mapImage.width / 2) * targetScale;
+        const finalOffsetY = targetOffsetY - (centerY - state.mapImage.height / 2) * targetScale;
 
-        if (!isMobile) {
-            finalOffsetX = targetOffsetX;
-            finalOffsetY = targetOffsetY;
-        }
-
-        console.log('targetScale:', targetScale);
-        console.log('finalOffsetX:', finalOffsetX);
-        console.log('finalOffsetY:', finalOffsetY);
-
-        // Update state variables immediately
+        // Apply changes immediately
         state.zoomLevel = targetScale;
         state.zoomCenter.x = finalOffsetX;
         state.zoomCenter.y = finalOffsetY;
 
-        // Start zoom animation immediately
-        startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
-        requestAnimationFrame(() => drawMap());
+        // Save the new zoom state
+        saveZoomState();
+        drawMap();
     } else {
         // Fallback to direct path if no path found
         state.pathToDestination = {
@@ -467,24 +431,37 @@ function findPath(start, end) {
             ]
         };
 
-        // Start zoom animation for direct path
-        const baseScale = Math.min(
-            elements.canvas.width / state.mapImage.width,
-            elements.canvas.height / state.mapImage.height
-        ) * config.zoom.base;
+        // Calculate zoom to fit the direct path
+        const midX = (start.imageX + end.imageX) / 2;
+        const midY = (start.imageY + end.imageY) / 2;
+        const pathWidth = Math.abs(end.imageX - start.imageX);
+        const pathHeight = Math.abs(end.imageY - start.imageY);
 
-        const targetScale = baseScale * config.zoom.singlePoint;
+        // Calculate scale with padding
+        const targetScale = Math.max(
+            Math.min(
+                elements.canvas.width / (pathWidth + config.view.pathPadding * 2),
+                elements.canvas.height / (pathHeight + config.view.pathPadding * 2)
+            ),
+            config.zoom.minPathScale
+        );
+
+        // Calculate offsets to center the path
         const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
         const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
 
         // Adjust offsets to center on the midpoint
-        const midX = (start.imageX + end.imageX) / 2;
-        const midY = (start.imageY + end.imageY) / 2;
         const finalOffsetX = targetOffsetX - (midX - state.mapImage.width / 2) * targetScale;
         const finalOffsetY = targetOffsetY - (midY - state.mapImage.height / 2) * targetScale;
 
-        startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
-        requestAnimationFrame(() => drawMap());
+        // Apply changes immediately
+        state.zoomLevel = targetScale;
+        state.zoomCenter.x = finalOffsetX;
+        state.zoomCenter.y = finalOffsetY;
+
+        // Save the new zoom state
+        saveZoomState();
+        drawMap();
     }
 }
 
@@ -530,72 +507,10 @@ function drawMap() {
         elements.canvas.height / state.mapImage.height
     ) * config.zoom.base;
 
-    // Apply zoom level if path is selected
-    let scale = baseScale;
-    let offsetX = (elements.canvas.width - state.mapImage.width * scale) / 2;
-    let offsetY = (elements.canvas.height - state.mapImage.height * scale) / 2;
-
-    if (state.pathToDestination && state.userLocation && !state.animation.isResetting) {
-        // Get bounds of the path
-        const bounds = state.pathFinder.getPathBounds(
-            state.pathToDestination.path,
-            state.userLocation.imageX,
-            state.userLocation.imageY,
-            state.pathToDestination.end.imageX,
-            state.pathToDestination.end.imageY
-        );
-
-        // Add padding around the path
-        const padding = config.view.pathPadding;
-        bounds.minX -= padding;
-        bounds.minY -= padding;
-        bounds.maxX += padding;
-        bounds.maxY += padding;
-
-        // Calculate the scale needed to fit the path
-        const pathWidth = bounds.maxX - bounds.minX;
-        const pathHeight = bounds.maxY - bounds.minY;
-
-        // Calculate scale with minimum limit
-        const targetScale = Math.max(
-            Math.min(
-                elements.canvas.width / pathWidth,
-                elements.canvas.height / pathHeight
-            ),
-            config.zoom.minPathScale
-        );
-
-        // Calculate center point, weighted towards user location
-        const userWeight = config.view.playerWeight;
-        const pathCenterX = (bounds.minX + bounds.maxX) / 2;
-        const pathCenterY = (bounds.minY + bounds.maxY) / 2;
-
-        const centerX = state.userLocation.imageX * userWeight + pathCenterX * (1 - userWeight);
-        const centerY = state.userLocation.imageY * userWeight + pathCenterY * (1 - userWeight);
-
-        // Calculate target offsets to center the view
-        const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
-        const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
-
-        // Adjust offsets to center on the weighted center point
-        const finalOffsetX = targetOffsetX - (centerX - state.mapImage.width / 2) * targetScale;
-        const finalOffsetY = targetOffsetY - (centerY - state.mapImage.height / 2) * targetScale;
-
-        // If we're not already animating, start a new animation
-        if (!state.animation.isAnimating) {
-            startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
-        }
-
-        // Use current animation values
-        scale = state.zoomLevel;
-        offsetX = state.zoomCenter.x;
-        offsetY = state.zoomCenter.y;
-    } else {
-        // Use current animation values
-        scale = state.zoomLevel;
-        offsetX = state.zoomCenter.x;
-        offsetY = state.zoomCenter.y;
-    }
+    // Apply zoom level
+    let scale = state.zoomLevel;
+    let offsetX = state.zoomCenter.x;
+    let offsetY = state.zoomCenter.y;
 
     // Save context
     elements.ctx.save();
@@ -617,11 +532,6 @@ function drawMap() {
     drawPlaces(scale);
 
     // Draw user location if available
-    if (state.userLocation) {
-        drawUserLocation(scale);
-    }
-
-    // Draw location selection indicator if in selection mode
     if (state.userLocation) {
         drawUserLocation(scale);
     }
@@ -894,27 +804,6 @@ function setDefaultLocation() {
 
     elements.locationInfo.textContent = 'Your location: [Default]';
     updateCoordinatesDisplay(state.userLocation.latitude, state.userLocation.longitude);
-
-    // Calculate new zoom level centered on default location
-    const baseScale = Math.min(
-        elements.canvas.width / state.mapImage.width,
-        elements.canvas.height / state.mapImage.height
-    ) * config.zoom.base;
-
-    const targetScale = baseScale * config.zoom.singlePoint;
-    const targetOffsetX = (elements.canvas.width - state.mapImage.width * targetScale) / 2;
-    const targetOffsetY = (elements.canvas.height - state.mapImage.height * targetScale) / 2;
-
-    // Adjust offsets to center on the default location
-    const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
-    const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
-
-    // Update zoom center to match default location
-    state.zoomLevel = targetScale;
-
-    // Start zoom animation and force an immediate draw
-    startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
-    requestAnimationFrame(() => drawMap());
 }
 
 function updateCoordinatesDisplay(latitude, longitude) {
@@ -1118,18 +1007,12 @@ function setupEventListeners() {
                 const newOffsetX = centerX - imageX * targetScale;
                 const newOffsetY = centerY - imageY * targetScale;
 
-                // Save original duration
-                const originalDuration = state.animation.duration;
-                // Set animation duration for location change
-                state.animation.duration = 200; // 500ms for smooth movement
+                // Apply changes immediately
+                state.zoomLevel = targetScale;
+                state.zoomCenter.x = newOffsetX;
+                state.zoomCenter.y = newOffsetY;
 
-                // Start zoom animation with the new values
-                startZoomAnimation(targetScale, newOffsetX, newOffsetY, false);
-
-                // Restore original duration after animation starts
-                setTimeout(() => {
-                    state.animation.duration = originalDuration;
-                }, 0);
+                drawMap();
             }
 
             if (state.debugMode) {
@@ -1140,7 +1023,18 @@ function setupEventListeners() {
 
     // Window resize
     window.addEventListener('resize', () => {
+        // Save current zoom state before resize
+        const savedZoomLevel = state.zoomLevel;
+        const savedCenterX = state.zoomCenter.x;
+        const savedCenterY = state.zoomCenter.y;
+
         resizeCanvas();
+
+        // Restore zoom state after resize
+        state.zoomLevel = savedZoomLevel;
+        state.zoomCenter.x = savedCenterX;
+        state.zoomCenter.y = savedCenterY;
+
         drawMap();
     });
 
@@ -1158,106 +1052,34 @@ function setupEventListeners() {
     elements.canvas.addEventListener('wheel', (event) => {
         event.preventDefault();
 
-        // Get the actual delta value for smoother control
-        const delta = -event.deltaY * 0.001; // Scale down the delta for finer control
-        
-        // Use a smooth exponential function for the zoom factor
+        const delta = -event.deltaY * 0.001;
         const zoomFactor = Math.exp(delta * config.zoom.wheelStep);
 
         const newScale = state.zoomLevel * zoomFactor;
         const clampedScale = Math.min(Math.max(newScale, config.zoom.min), config.zoom.max);
 
         if (clampedScale !== state.zoomLevel) {
-            // Calculate the center of the screen in image coordinates
-            const centerX = elements.canvas.width / 2;
-            const centerY = elements.canvas.height / 2;
+            const rect = elements.canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
             
-            // Convert screen center to image coordinates with higher precision
-            const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
-            const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
+            const imageX = (mouseX - state.zoomCenter.x) / state.zoomLevel;
+            const imageY = (mouseY - state.zoomCenter.y) / state.zoomLevel;
             
-            // Calculate new offsets to keep the center point fixed
-            const newOffsetX = centerX - imageCenterX * clampedScale;
-            const newOffsetY = centerY - imageCenterY * clampedScale;
+            const newOffsetX = mouseX - imageX * clampedScale;
+            const newOffsetY = mouseY - imageY * clampedScale;
 
-            // Apply changes immediately without animation
             state.zoomLevel = clampedScale;
             state.zoomCenter.x = newOffsetX;
             state.zoomCenter.y = newOffsetY;
             drawMap();
-        }
-    });
-
-    // Touch zoom support
-    let initialDistance = 0;
-    let initialScale = 1;
-
-    elements.canvas.addEventListener('touchstart', (event) => {
-        if (event.touches.length === 2) {
-            event.preventDefault();
-            initialDistance = Math.hypot(
-                event.touches[0].clientX - event.touches[1].clientX,
-                event.touches[0].clientY - event.touches[1].clientY
-            );
-            initialScale = state.zoomLevel;
-        }
-    });
-
-    elements.canvas.addEventListener('touchmove', (event) => {
-        if (event.touches.length === 2) {
-            event.preventDefault();
-            
-            const currentDistance = Math.hypot(
-                event.touches[0].clientX - event.touches[1].clientX,
-                event.touches[0].clientY - event.touches[1].clientY
-            );
-
-            const scale = initialScale * (currentDistance / initialDistance);
-            const clampedScale = Math.min(Math.max(scale, config.zoom.min), config.zoom.max);
-
-            // Calculate the center of the zoom
-            const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
-            const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
-
-            // Calculate the current center point in image coordinates with higher precision
-            const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
-            const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
-
-            // Calculate new offsets to maintain the exact same center point
-            const newOffsetX = centerX - imageCenterX * clampedScale;
-            const newOffsetY = centerY - imageCenterY * clampedScale;
-
-            // Apply changes immediately without animation
-            state.zoomLevel = clampedScale;
-            state.zoomCenter.x = newOffsetX;
-            state.zoomCenter.y = newOffsetY;
-            drawMap();
-        }
-    });
-
-    // Touch drag support
-    let touchStartX = 0;
-    let touchStartY = 0;
-
-    elements.canvas.addEventListener('touchstart', (event) => {
-        if (event.touches.length === 1) {
-            touchStartX = event.touches[0].clientX - state.zoomCenter.x;
-            touchStartY = event.touches[0].clientY - state.zoomCenter.y;
-        }
-    });
-
-    elements.canvas.addEventListener('touchmove', (event) => {
-        if (event.touches.length === 1) {
-            event.preventDefault();
-            state.zoomCenter.x = event.touches[0].clientX - touchStartX;
-            state.zoomCenter.y = event.touches[0].clientY - touchStartY;
-            drawMap();
+            saveZoomState();
         }
     });
 
     // Drag functionality
     elements.canvas.addEventListener('mousedown', (event) => {
-        if (event.button === 0) { // Left mouse button
+        if (event.button === 0 && !state.isLocationSelectMode) { // Left mouse button and not in location select mode
             state.isDragging = true;
             state.dragStart = { x: event.clientX, y: event.clientY };
             state.lastDragPosition = { x: state.zoomCenter.x, y: state.zoomCenter.y };
@@ -1272,7 +1094,6 @@ function setupEventListeners() {
 
             state.zoomCenter.x = state.lastDragPosition.x + dx;
             state.zoomCenter.y = state.lastDragPosition.y + dy;
-
             drawMap();
         }
     });
@@ -1291,6 +1112,225 @@ function setupEventListeners() {
         }
     });
 
+    // Enhanced touch state management
+    let touchState = {
+        isPinching: false,
+        initialDistance: 0,
+        initialScale: 1,
+        lastTouchX: 0,
+        lastTouchY: 0,
+        startX: 0,
+        startY: 0,
+        lastCenterX: 0,
+        lastCenterY: 0,
+        lastScale: 1,
+        velocityX: 0,
+        velocityY: 0,
+        lastTouchTime: 0,
+        isDragging: false,
+        lastPinchCenter: { x: 0, y: 0 },
+        touchStartTime: 0,
+        lastTouchDistance: 0,
+        pinchVelocity: 0
+    };
+
+    // Enhanced touch event handlers
+    elements.canvas.addEventListener('touchstart', (event) => {
+        if (event.touches.length === 2) {
+            event.preventDefault();
+            touchState.isPinching = true;
+            touchState.isDragging = false;
+            
+            // Calculate initial distance between two touches
+            touchState.initialDistance = Math.hypot(
+                event.touches[0].clientX - event.touches[1].clientX,
+                event.touches[0].clientY - event.touches[1].clientY
+            );
+            touchState.lastTouchDistance = touchState.initialDistance;
+            touchState.initialScale = state.zoomLevel;
+            touchState.lastScale = state.zoomLevel;
+            touchState.touchStartTime = performance.now();
+            touchState.pinchVelocity = 0;
+
+            // Calculate center point of the pinch
+            const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+            const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+            
+            // Store the center point in image coordinates
+            touchState.lastCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
+            touchState.lastCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
+            touchState.lastPinchCenter = { x: centerX, y: centerY };
+        } else if (event.touches.length === 1 && !state.isLocationSelectMode) {
+            const touch = event.touches[0];
+            touchState.isDragging = true;
+            touchState.startX = touch.clientX;
+            touchState.startY = touch.clientY;
+            touchState.lastTouchX = state.zoomCenter.x;
+            touchState.lastTouchY = state.zoomCenter.y;
+            touchState.lastTouchTime = performance.now();
+            touchState.velocityX = 0;
+            touchState.velocityY = 0;
+            touchState.touchStartTime = performance.now();
+        }
+    });
+
+    elements.canvas.addEventListener('touchmove', (event) => {
+        if (event.touches.length === 2 && touchState.isPinching) {
+            event.preventDefault();
+            
+            const currentTime = performance.now();
+            const deltaTime = currentTime - touchState.lastTouchTime;
+            
+            // Calculate current distance between touches
+            const currentDistance = Math.hypot(
+                event.touches[0].clientX - event.touches[1].clientX,
+                event.touches[0].clientY - event.touches[1].clientY
+            );
+
+            // Calculate pinch velocity
+            if (deltaTime > 0) {
+                touchState.pinchVelocity = (currentDistance - touchState.lastTouchDistance) / deltaTime;
+            }
+            touchState.lastTouchDistance = currentDistance;
+            touchState.lastTouchTime = currentTime;
+
+            // Calculate new scale with smoothing and velocity
+            const rawScale = touchState.initialScale * (currentDistance / touchState.initialDistance);
+            const smoothedScale = touchState.lastScale + (rawScale - touchState.lastScale) * 0.3;
+            const clampedScale = Math.min(Math.max(smoothedScale, config.zoom.min), config.zoom.max);
+
+            if (Math.abs(clampedScale - state.zoomLevel) > 0.001) {
+                // Calculate current center point of the pinch
+                const centerX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+                const centerY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+
+                // Calculate new offsets to keep the pinch center point fixed
+                const newOffsetX = centerX - touchState.lastCenterX * clampedScale;
+                const newOffsetY = centerY - touchState.lastCenterY * clampedScale;
+
+                // Apply changes with smoothing
+                state.zoomLevel = clampedScale;
+                state.zoomCenter.x = newOffsetX;
+                state.zoomCenter.y = newOffsetY;
+                touchState.lastScale = clampedScale;
+                touchState.lastPinchCenter = { x: centerX, y: centerY };
+                drawMap();
+                saveZoomState();
+            }
+        } else if (event.touches.length === 1 && touchState.isDragging && !touchState.isPinching) {
+            event.preventDefault();
+            const touch = event.touches[0];
+            const currentTime = performance.now();
+            const deltaTime = currentTime - touchState.lastTouchTime;
+            
+            if (deltaTime > 0) {
+                const dx = touch.clientX - touchState.startX;
+                const dy = touch.clientY - touchState.startY;
+                
+                // Calculate velocity with smoothing
+                const newVelocityX = dx / deltaTime;
+                const newVelocityY = dy / deltaTime;
+                touchState.velocityX = touchState.velocityX * 0.5 + newVelocityX * 0.5;
+                touchState.velocityY = touchState.velocityY * 0.5 + newVelocityY * 0.5;
+                
+                // Apply movement with smoothing
+                state.zoomCenter.x = touchState.lastTouchX + dx;
+                state.zoomCenter.y = touchState.lastTouchY + dy;
+                
+                touchState.lastTouchTime = currentTime;
+                drawMap();
+                saveZoomState();
+            }
+        }
+    });
+
+    elements.canvas.addEventListener('touchend', (event) => {
+        if (event.touches.length < 2) {
+            touchState.isPinching = false;
+            
+            // Apply momentum for both panning and zooming
+            const momentum = () => {
+                let hasMomentum = false;
+                
+                // Pan momentum
+                if (Math.abs(touchState.velocityX) > 0.1 || Math.abs(touchState.velocityY) > 0.1) {
+                    state.zoomCenter.x += touchState.velocityX * 16;
+                    state.zoomCenter.y += touchState.velocityY * 16;
+                    
+                    // Apply friction
+                    touchState.velocityX *= 0.95;
+                    touchState.velocityY *= 0.95;
+                    hasMomentum = true;
+                }
+                
+                // Zoom momentum
+                if (Math.abs(touchState.pinchVelocity) > 0.1) {
+                    const zoomFactor = 1 + touchState.pinchVelocity * 0.1;
+                    const newScale = state.zoomLevel * zoomFactor;
+                    const clampedScale = Math.min(Math.max(newScale, config.zoom.min), config.zoom.max);
+                    
+                    if (clampedScale !== state.zoomLevel) {
+                        // Calculate center point for zoom
+                        const centerX = elements.canvas.width / 2;
+                        const centerY = elements.canvas.height / 2;
+                        
+                        // Convert center to image coordinates
+                        const imageX = (centerX - state.zoomCenter.x) / state.zoomLevel;
+                        const imageY = (centerY - state.zoomCenter.y) / state.zoomLevel;
+                        
+                        // Calculate new offsets
+                        const newOffsetX = centerX - imageX * clampedScale;
+                        const newOffsetY = centerY - imageY * clampedScale;
+                        
+                        state.zoomLevel = clampedScale;
+                        state.zoomCenter.x = newOffsetX;
+                        state.zoomCenter.y = newOffsetY;
+                        hasMomentum = true;
+                    }
+                    
+                    // Apply friction to zoom velocity
+                    touchState.pinchVelocity *= 0.95;
+                }
+                
+                if (hasMomentum) {
+                    drawMap();
+                    saveZoomState();
+                    requestAnimationFrame(momentum);
+                }
+            };
+            
+            requestAnimationFrame(momentum);
+        }
+        
+        if (event.touches.length === 0) {
+            touchState.isDragging = false;
+            touchState.startX = 0;
+            touchState.startY = 0;
+            touchState.lastTouchX = 0;
+            touchState.lastTouchY = 0;
+            touchState.velocityX = 0;
+            touchState.velocityY = 0;
+            touchState.lastPinchCenter = { x: 0, y: 0 };
+            touchState.pinchVelocity = 0;
+        }
+    });
+
+    elements.canvas.addEventListener('touchcancel', (event) => {
+        touchState.isPinching = false;
+        touchState.isDragging = false;
+        touchState.startX = 0;
+        touchState.startY = 0;
+        touchState.lastTouchX = 0;
+        touchState.lastTouchY = 0;
+        touchState.velocityX = 0;
+        touchState.velocityY = 0;
+        touchState.lastPinchCenter = { x: 0, y: 0 };
+        touchState.pinchVelocity = 0;
+    });
+
+    // Add touch-action CSS to prevent browser handling
+    elements.canvas.style.touchAction = 'none';
+
     // Zoom controls
     const zoomIn = document.getElementById('zoom-in');
     const zoomOut = document.getElementById('zoom-out');
@@ -1304,18 +1344,17 @@ function setupEventListeners() {
             Math.max(newScale, config.zoom.min);
 
         if (clampedScale !== state.zoomLevel) {
-            // Calculate the center of the screen in image coordinates
+            // Get the center of the screen
             const centerX = elements.canvas.width / 2;
             const centerY = elements.canvas.height / 2;
             
-            // Convert screen center to image coordinates with higher precision
-            const imageCenterX = (centerX - state.zoomCenter.x) / state.zoomLevel;
-            const imageCenterY = (centerY - state.zoomCenter.y) / state.zoomLevel;
+            // Convert screen center to image coordinates
+            const imageX = (centerX - state.zoomCenter.x) / state.zoomLevel;
+            const imageY = (centerY - state.zoomCenter.y) / state.zoomLevel;
             
             // Calculate new offsets to keep the center point fixed
-            const scaleChange = clampedScale / state.zoomLevel;
-            const newOffsetX = centerX - imageCenterX * clampedScale;
-            const newOffsetY = centerY - imageCenterY * clampedScale;
+            const newOffsetX = centerX - imageX * clampedScale;
+            const newOffsetY = centerY - imageY * clampedScale;
 
             // Apply changes immediately without animation
             state.zoomLevel = clampedScale;
@@ -1447,9 +1486,6 @@ function resetZoom() {
         elements.locationInfo.textContent = 'Your location:';
         updatePlacesList();
 
-        // Force an immediate redraw to clear the path
-        drawMap();
-
         // Calculate new zoom level centered on user location
         const baseScale = Math.min(
             elements.canvas.width / state.mapImage.width,
@@ -1464,61 +1500,14 @@ function resetZoom() {
         const finalOffsetX = targetOffsetX - (state.userLocation.imageX - state.mapImage.width / 2) * targetScale;
         const finalOffsetY = targetOffsetY - (state.userLocation.imageY - state.mapImage.height / 2) * targetScale;
 
-        // Reset animation state
-        state.animation.isAnimating = false;
-        state.animation.isResetting = false;
-
-        // Start zoom animation
-        startZoomAnimation(targetScale, finalOffsetX, finalOffsetY, false);
-    }
-}
-
-// Add animation functions
-function easeOutExpo(t) {
-    return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-}
-
-function startZoomAnimation(targetScale, targetOffsetX, targetOffsetY, isResetting = false) {
-    state.animation.isAnimating = true;
-    state.animation.isResetting = isResetting;
-    state.animation.startTime = performance.now();
-    state.animation.startScale = state.zoomLevel;
-    state.animation.targetScale = targetScale;
-    state.animation.startOffsetX = state.zoomCenter.x;
-    state.animation.startOffsetY = state.zoomCenter.y;
-    state.animation.targetOffsetX = targetOffsetX;
-    state.animation.targetOffsetY = targetOffsetY;
-
-    requestAnimationFrame(animateZoom);
-}
-
-function animateZoom(currentTime) {
-    if (!state.animation.isAnimating) return;
-
-    const elapsed = currentTime - state.animation.startTime;
-    const progress = Math.min(elapsed / state.animation.duration, 1);
-    const easedProgress = easeOutExpo(progress);
-
-    // Update current zoom and offset
-    state.zoomLevel = state.animation.startScale + (state.animation.targetScale - state.animation.startScale) * easedProgress;
-    state.zoomCenter.x = state.animation.startOffsetX + (state.animation.targetOffsetX - state.animation.startOffsetX) * easedProgress;
-    state.zoomCenter.y = state.animation.startOffsetY + (state.animation.targetOffsetY - state.animation.startOffsetY) * easedProgress;
-
-    // Redraw the map with current animation values
-    drawMap();
-
-    if (progress < 1) {
-        requestAnimationFrame(animateZoom);
-    } else {
-        state.animation.isAnimating = false;
-        if (state.animation.isResetting) {
-            // Clear the path and selection after animation completes
-            state.pathToDestination = null;
-            state.selectedPlace = null;
-            elements.locationInfo.textContent = 'Your location:';
-            updatePlacesList();
-            state.animation.isResetting = false;
-        }
+        // Apply changes immediately
+        state.zoomLevel = targetScale;
+        state.zoomCenter.x = finalOffsetX;
+        state.zoomCenter.y = finalOffsetY;
+        drawMap();
+        
+        // Clear saved zoom state
+        localStorage.removeItem('mapZoomState');
     }
 }
 
@@ -1530,4 +1519,33 @@ function setupMobileControls() {
         elements.controls.style.display = 'block';
         elements.toggleControlsBtn.textContent = 'Hide Controls';
     }
+}
+
+// Add zoom state persistence
+function saveZoomState() {
+    try {
+        // Only save if we have valid numbers
+        if (!isNaN(state.zoomLevel) && !isNaN(state.zoomCenter.x) && !isNaN(state.zoomCenter.y)) {
+            localStorage.setItem('mapZoomState', JSON.stringify({
+                zoomLevel: state.zoomLevel,
+                zoomCenter: {
+                    x: state.zoomCenter.x,
+                    y: state.zoomCenter.y
+                }
+            }));
+        }
+    } catch (e) {
+        console.error('Error saving zoom state:', e);
+    }
+}
+
+function loadZoomState() {
+    const savedState = localStorage.getItem('mapZoomState');
+    if (savedState) {
+        const { zoomLevel, zoomCenter } = JSON.parse(savedState);
+        state.zoomLevel = zoomLevel;
+        state.zoomCenter = zoomCenter;
+        return true;
+    }
+    return false;
 }
